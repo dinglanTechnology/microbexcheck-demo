@@ -72,7 +72,7 @@ jobs:
 
       # main 环境：选了 environment=main 时部署当前所选分支；未选（none）时保持旧行为——仅 main 分支自动部署
       - name: Notify Jenkins dev (develop 环境)
-        if: inputs.environment == 'dev' || (inputs.environment == 'none' && github.ref == 'refs/heads/develop')
+        if: inputs.environment == 'main' || (inputs.environment == 'none' && github.ref == 'refs/heads/main')
         env:
           CRUMB: ${{ steps.get-crumb.outputs.crumb }}
         run: |
