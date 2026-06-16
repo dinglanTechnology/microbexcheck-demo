@@ -10,12 +10,64 @@ datasource db {
   provider = "mysql"
 }
 
-model User {
+// 数据来源：AI = 原始抽取；YANG = 杨（校对人）；WANG = 王（审核人）
+enum Source {
+  AI
+  YANG
+  WANG
+}
+
+// 一篇待审核文献
+model Paper {
+  id          Int      @id @default(autoincrement())
+  fileKey     String   @unique @db.VarChar(255) // JSON 文件名 / paper_id
+  title       String?  @db.Text
+  journal     String?
+  year        Int?
+  doi         String?
+  pmid        String?
+  url         String?  @db.Text
+  pdfFileName String?  @db.VarChar(255) // 本地原始 PDF 文件名
+  pdfUrl      String?  @db.Text // 上传到阿里云 OSS 后的地址
+  status      String   @default("pending") // pending | active | done
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  fields FieldValue[]
+  coords FieldCoord[]
+
+  @@map("papers")
+}
+
+// 字段值：一行 = (文献 × 字段 × 来源)。value 用 Json 统一存标量/证据对象（list 已拼接为字符串）。
+model FieldValue {
   id        Int      @id @default(autoincrement())
-  email     String   @unique
-  name      String?
+  paperId   Int
+  section   String   @db.VarChar(32) // 分区 id，如 ds / proto / cond / evidence
+  fieldPath String   @db.VarChar(255) // 行标识 rid，如 ds.元数据质量 / cond.0.剂量 / ev.0
+  source    Source
+  value     Json
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@map("users")
+  paper Paper @relation(fields: [paperId], references: [id], onDelete: Cascade)
+
+  @@unique([paperId, fieldPath, source])
+  @@index([paperId, section])
+  @@map("field_values")
+}
+
+// 字段坐标：字段级（与来源无关，挂在主字段上）。一行 = (文献 × 字段)。
+model FieldCoord {
+  id        Int      @id @default(autoincrement())
+  paperId   Int
+  fieldPath String   @db.VarChar(255) // 行标识 rid
+  coords    Json // PDF 框选坐标 [{page,x,y,w,h}, ...]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  paper Paper @relation(fields: [paperId], references: [id], onDelete: Cascade)
+
+  @@unique([paperId, fieldPath])
+  @@map("field_coords")
 }
