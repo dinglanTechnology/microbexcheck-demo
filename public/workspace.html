@@ -816,7 +816,8 @@ function closeM(id){document.getElementById(id).classList.remove('open');}
 /* ══════════════════════════════════════════════════════════════
    SIDEBAR
    ══════════════════════════════════════════════════════════════ */
-function toggleLeft(){leftOpen=!leftOpen;document.getElementById('leftPanel').classList.toggle('open',leftOpen);const f=document.getElementById('leftFilters');f.style.opacity=leftOpen?1:0;f.style.pointerEvents=leftOpen?'all':'none';renderSidebar();}
+function applyLeftState(){const p=document.getElementById('leftPanel');if(p)p.classList.toggle('open',leftOpen);const f=document.getElementById('leftFilters');if(f){f.style.opacity=leftOpen?1:0;f.style.pointerEvents=leftOpen?'all':'none';}}
+function toggleLeft(){leftOpen=!leftOpen;try{localStorage.setItem('mc_left_open',leftOpen?'1':'0');}catch(e){}applyLeftState();renderSidebar();}
 function setStFilter(st,el){stFilter=st;document.querySelectorAll('.st-chip').forEach(c=>c.classList.remove('on'));el.classList.add('on');renderSidebar();}
 function filterFiles(){renderSidebar();}
 function renderSidebar(){
@@ -1486,7 +1487,12 @@ async function loadFiles() {
   FILES.length = 0;
   const LIB = 'IPSC'; // 文件所属库（demo 未建库，仅展示后缀）
   (j.data || []).forEach(p => FILES.push({ id: p.id, name: (p.title || p.fileKey) + '———' + LIB, pid: 'P' + p.id, st: p.status || 'pending' }));
-  if (FILES.length && CURRENT_ID == null) CURRENT_ID = FILES[0].id;
+  if (FILES.length && CURRENT_ID == null) {
+    // 刷新后恢复上次选中的文献（localStorage），不存在则回退到第一篇
+    let saved = null;
+    try { saved = Number(localStorage.getItem('mc_current_paper')); } catch (e) {}
+    CURRENT_ID = (saved && FILES.some(f => f.id === saved)) ? saved : FILES[0].id;
+  }
   renderSidebar();
 }
 function applyDetail(d) {
@@ -1533,6 +1539,7 @@ async function loadPaper(id) {
     if (!r.ok) throw new Error('http ' + r.status);
     const d = await r.json();
     CURRENT_ID = id;
+    try { localStorage.setItem('mc_current_paper', String(id)); } catch (e) {}
     PDF_URL = (d.paper && d.paper.pdfUrl) || null;
     resetState();
     applyDetail(d);
@@ -1774,6 +1781,9 @@ deleteSelectedLoc = function () {
 };
 
 window.addEventListener('DOMContentLoaded', async () => {
+  // 恢复列表栏的展开/收缩状态
+  try { leftOpen = localStorage.getItem('mc_left_open') === '1'; } catch (e) {}
+  applyLeftState();
   try { await loadFiles(); if (FILES.length) await loadPaper(CURRENT_ID); }
   catch (e) { console.error(e); showT('列表加载失败', 'twrn'); }
 });
