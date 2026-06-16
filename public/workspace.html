@@ -1533,6 +1533,7 @@ async function loadPaper(id) {
     if (!r.ok) throw new Error('http ' + r.status);
     const d = await r.json();
     CURRENT_ID = id;
+    PDF_URL = (d.paper && d.paper.pdfUrl) || null;
     resetState();
     applyDetail(d);
     buildState();           // 内部会调用下面被覆写的 buildReviewSources
@@ -1604,6 +1605,7 @@ confirmField = function (rid) {
 const PDF_W = 560;                 // 渲染宽度，与 .pdf-page CSS 宽度一致
 var selectedOverlay = null;
 var pdfObserver = null;            // 懒加载页面的 IntersectionObserver
+var PDF_URL = null;                // 当前文献的 OSS 直链（优先直连，失败回退代理）
 
 // 覆写 buildDoc：中间面板渲染真实 PDF（来自同源代理 /api/papers/:id/pdf）
 buildDoc = function () { renderPdf(CURRENT_ID); };
@@ -1617,8 +1619,21 @@ async function renderPdf(id) {
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   if (pdfObserver) { pdfObserver.disconnect(); pdfObserver = null; }
   try {
-    // disableAutoFetch/Stream：只按需用 Range 拉取被查看的页，不整文件下载
-    const pdf = await pdfjsLib.getDocument({ url: '/api/papers/' + id + '/pdf', disableAutoFetch: true, disableStream: true }).promise;
+    // disableAutoFetch：只按需用 Range 拉取被查看的页，不整文件下载。
+    // 优先直连 OSS/CDN（最快，需 OSS 已配 CORS）；失败再回退同源代理。
+    const opts = { disableAutoFetch: true };
+    const proxyUrl = '/api/papers/' + id + '/pdf';
+    let pdf;
+    if (PDF_URL) {
+      try {
+        pdf = await pdfjsLib.getDocument(Object.assign({ url: PDF_URL }, opts)).promise;
+      } catch (e) {
+        console.warn('直连 OSS 失败，回退同源代理（多半是 OSS 未配 CORS）：', e && e.message);
+        pdf = await pdfjsLib.getDocument(Object.assign({ url: proxyUrl }, opts)).promise;
+      }
+    } else {
+      pdf = await pdfjsLib.getDocument(Object.assign({ url: proxyUrl }, opts)).promise;
+    }
     if (id !== CURRENT_ID) return;   // 期间切换了文献，丢弃
     area.innerHTML = '';
     const dpr = window.devicePixelRatio || 1;
