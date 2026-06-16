@@ -7,7 +7,7 @@ import {
   sectionOf,
   fieldNode,
   type ValueMap,
-  type CoordMap,
+  type MetaMap,
   type SourceKey,
 } from "@/lib/ipsc/assemble";
 
@@ -15,9 +15,10 @@ type Context = { params: Promise<{ id: string }> };
 
 // PATCH /api/papers/[id]/fields
 // Body: a single edit, or { edits: [...] }.
-//   { fieldPath, source?, value?, coords? }
-//   - value  ⇒ requires source; upserts that source's FieldValue
-//   - coords ⇒ field-level; upserts FieldCoord (null clears it)
+//   { fieldPath, source?, value?, coords?, confirmed? }
+//   - value     ⇒ requires source; upserts that source's FieldValue
+//   - coords     ⇒ field-level FieldMeta.coords (null clears)
+//   - confirmed  ⇒ field-level FieldMeta.confirmed (审核「确认/已提交」)
 export async function PATCH(request: NextRequest, { params }: Context) {
   try {
     const id = Number((await params).id);
@@ -47,28 +48,40 @@ export async function PATCH(request: NextRequest, { params }: Context) {
           }),
         );
       }
-      if (e.coords !== undefined) {
-        if (e.coords === null) {
-          ops.push(prisma.fieldCoord.deleteMany({ where: { paperId: id, fieldPath: e.fieldPath } }));
-        } else {
-          const coords = e.coords as Prisma.InputJsonValue;
-          ops.push(
-            prisma.fieldCoord.upsert({
-              where: { paperId_fieldPath: { paperId: id, fieldPath: e.fieldPath } },
-              create: { paperId: id, fieldPath: e.fieldPath, coords },
-              update: { coords },
-            }),
-          );
-        }
+      if (e.coords !== undefined || e.confirmed !== undefined || e.accepted !== undefined) {
+        const coordsVal =
+          e.coords === undefined
+            ? undefined
+            : e.coords === null
+              ? Prisma.DbNull
+              : (e.coords as Prisma.InputJsonValue);
+        const acceptedVal =
+          e.accepted === undefined
+            ? undefined
+            : e.accepted === null
+              ? Prisma.DbNull
+              : (e.accepted as Prisma.InputJsonValue);
+        const data = {
+          ...(coordsVal !== undefined ? { coords: coordsVal } : {}),
+          ...(acceptedVal !== undefined ? { accepted: acceptedVal } : {}),
+          ...(e.confirmed !== undefined ? { confirmed: e.confirmed } : {}),
+        };
+        ops.push(
+          prisma.fieldMeta.upsert({
+            where: { paperId_fieldPath: { paperId: id, fieldPath: e.fieldPath } },
+            create: { paperId: id, fieldPath: e.fieldPath, ...data },
+            update: data,
+          }),
+        );
       }
     }
     await prisma.$transaction(ops);
 
     // Return the affected fields' fresh state.
     const paths = [...new Set(edits.map((e) => e.fieldPath))];
-    const [fvs, fcs] = await Promise.all([
+    const [fvs, fms] = await Promise.all([
       prisma.fieldValue.findMany({ where: { paperId: id, fieldPath: { in: paths } } }),
-      prisma.fieldCoord.findMany({ where: { paperId: id, fieldPath: { in: paths } } }),
+      prisma.fieldMeta.findMany({ where: { paperId: id, fieldPath: { in: paths } } }),
     ]);
 
     const values: ValueMap = new Map();
@@ -77,9 +90,11 @@ export async function PATCH(request: NextRequest, { params }: Context) {
       entry[fv.source as SourceKey] = fv.value;
       values.set(fv.fieldPath, entry);
     }
-    const coords: CoordMap = new Map(fcs.map((c) => [c.fieldPath, c.coords]));
+    const metas: MetaMap = new Map(
+      fms.map((m) => [m.fieldPath, { coords: m.coords, confirmed: m.confirmed, accepted: m.accepted }]),
+    );
 
-    return NextResponse.json({ fields: paths.map((p) => fieldNode(p, values, coords)) });
+    return NextResponse.json({ fields: paths.map((p) => fieldNode(p, values, metas)) });
   } catch (err) {
     return handleError(err);
   }

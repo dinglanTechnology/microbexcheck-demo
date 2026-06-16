@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, handleError } from "@/lib/http";
-import { buildSections, type ValueMap, type CoordMap, type SourceKey } from "@/lib/ipsc/assemble";
+import { buildSections, type ValueMap, type MetaMap, type SourceKey } from "@/lib/ipsc/assemble";
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -13,7 +13,7 @@ export async function GET(_request: NextRequest, { params }: Context) {
 
     const paper = await prisma.paper.findUnique({
       where: { id },
-      include: { fields: true, coords: true },
+      include: { fields: true, metas: true },
     });
     if (!paper) return errorResponse("Resource not found", 404);
 
@@ -23,7 +23,9 @@ export async function GET(_request: NextRequest, { params }: Context) {
       entry[fv.source as SourceKey] = fv.value;
       values.set(fv.fieldPath, entry);
     }
-    const coords: CoordMap = new Map(paper.coords.map((c) => [c.fieldPath, c.coords]));
+    const metas: MetaMap = new Map(
+      paper.metas.map((m) => [m.fieldPath, { coords: m.coords, confirmed: m.confirmed, accepted: m.accepted }]),
+    );
 
     return NextResponse.json({
       paper: {
@@ -38,7 +40,7 @@ export async function GET(_request: NextRequest, { params }: Context) {
         status: paper.status,
         pdfUrl: paper.pdfUrl,
       },
-      sections: buildSections(values, coords),
+      sections: buildSections(values, metas),
     });
   } catch (err) {
     return handleError(err);
