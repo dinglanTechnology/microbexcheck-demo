@@ -1,0 +1,1966 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>MicrobeCollect — Scientific Data Annotation Platform</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --black:#000;--ink:#0a0a0a;--ink2:#111;
+  --fog:#8e8e93;--mist:#98989d;--pale:#d2d2d7;--ghost:#f5f5f7;--white:#fff;
+  --blue:#0071e3;--blue2:#0077ed;--bluelt:#409cff;--bluebl:#e8f0fe;
+  --r:12px;--rsm:8px;
+  --ease:cubic-bezier(.4,0,.2,1);--ease-out:cubic-bezier(0,0,.2,1);
+  --shadow-sm:0 1px 4px rgba(0,0,0,.08);
+  --shadow:0 4px 24px rgba(0,0,0,.08);
+  --shadow-lg:0 12px 48px rgba(0,0,0,.12);
+  --shadow-xl:0 32px 80px rgba(0,0,0,.18);
+}
+html{scroll-behavior:smooth}
+body{font-family:'Inter',sans-serif;background:#000;color:#e0e0e0;line-height:1.6;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+
+/* ── NAV ── */
+nav{position:fixed;top:0;left:0;right:0;z-index:200;height:64px;display:flex;align-items:center;padding:0 24px;background:rgba(0,0,0,.65);backdrop-filter:saturate(200%) blur(30px);-webkit-backdrop-filter:saturate(200%) blur(30px);border-bottom:1px solid transparent;background-clip:padding-box;transition:all .3s;box-shadow:inset 0 -1px 0 0 rgba(255,255,255,.06),inset 0 -1px 0 0 rgba(255,255,255,.04)}
+.nav-inner{max-width:1080px;margin:0 auto;width:100%;display:flex;align-items:center}
+.nav-logo{display:flex;align-items:center;gap:8px;text-decoration:none;flex-shrink:0}
+.nav-logo-mark svg{width:22px;height:22px;color:rgba(255,255,255,.85)}
+.nav-logo-text{font-size:17px;font-weight:600;color:rgba(255,255,255,.9);letter-spacing:-.3px}
+.nav-links{display:flex;align-items:center;flex:1;justify-content:center}
+.nav-links a{font-size:14px;color:rgba(255,255,255,.6);text-decoration:none;font-weight:400;padding:0 18px;transition:color .15s;letter-spacing:.01em}
+.nav-links a:hover{color:var(--white)}
+.nav-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.btn-nav-ghost{padding:8px 18px;border:1px solid rgba(255,255,255,.2);border-radius:20px;font-family:inherit;font-size:14px;color:rgba(255,255,255,.75);background:transparent;cursor:pointer;transition:all .15s}
+.btn-nav-ghost:hover{border-color:rgba(255,255,255,.4);color:var(--white)}
+.btn-nav-primary{padding:8px 20px;border:none;border-radius:20px;font-family:inherit;font-size:14px;font-weight:500;color:#fff;background:var(--blue);cursor:pointer;transition:all .15s}
+.btn-nav-primary:hover{background:var(--blue2)}
+
+/* ══════════════════════════════════════════
+   HERO — fluid simulation background
+══════════════════════════════════════════ */
+.hero{position:relative;min-height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden;background:transparent}
+#threeCanvas{position:absolute;inset:0;width:100%;height:100%;z-index:2}#threeCanvas canvas{width:100%!important;height:100%!important}
+.anno-labels{position:absolute;inset:0;z-index:4;pointer-events:none;overflow:hidden}
+.anno-tag{position:absolute;font-family:"JetBrains Mono",monospace;font-size:10px;font-weight:500;color:rgba(100,180,255,0.7);background:rgba(10,20,50,0.55);border:1px solid rgba(60,120,255,0.25);border-radius:4px;padding:3px 8px;white-space:nowrap;transition:opacity .4s;letter-spacing:.04em;backdrop-filter:blur(4px)}
+.anno-tag::before{content:"";position:absolute;left:-14px;top:50%;width:12px;height:1px;background:rgba(60,120,255,0.4)}
+.anno-tag.right::before{left:auto;right:-14px}
+/* ambient glow behind title */
+.hero-glow{position:absolute;top:50%;left:50%;transform:translate(-50%,-55%);width:90vw;height:80vh;background:radial-gradient(ellipse at center,rgba(56,189,248,.14) 0%,rgba(99,102,241,.08) 35%,rgba(192,132,252,.04) 60%,transparent 75%);pointer-events:none;z-index:3}
+/* vignette */
+.hero::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 90% 85% at 50% 50%,transparent 40%,rgba(0,0,0,.45) 100%);pointer-events:none;z-index:3}
+.hero::before{content:'';position:absolute;bottom:0;left:0;right:0;height:40%;background:linear-gradient(to bottom,transparent 0%,#000 100%);pointer-events:none;z-index:5}
+/* scroll wave transition */
+
+.hero-content{position:relative;z-index:10;display:flex;flex-direction:column;align-items:center;text-align:center;padding:0 24px;width:100%;max-width:none;margin-top:-20vh}
+/* entrance animation */
+.hero-eyebrow,.hero-title,.hero-sub,.hero-cta{opacity:0;transform:translateY(22px);display:flex;align-items:center;gap:18px}
+.hero-ready .hero-eyebrow{animation:heroIn .9s cubic-bezier(.16,1,.3,1) 1.6s forwards}
+.hero-ready .hero-title  {animation:heroIn 1.1s cubic-bezier(.16,1,.3,1) 1.8s forwards}
+.hero-ready .hero-sub    {animation:heroIn .9s cubic-bezier(.16,1,.3,1) 2.2s forwards}
+.hero-ready .hero-cta    {animation:heroIn .9s cubic-bezier(.16,1,.3,1) 2.5s forwards}
+@keyframes heroIn{to{opacity:1;transform:none}}
+.hero-eyebrow{font-size:12px;font-weight:500;color:rgba(64,156,255,.9);letter-spacing:.22em;text-transform:uppercase;margin-bottom:22px}
+.hero-title{font-weight:700;line-height:1.06;letter-spacing:-3px;color:#fff;margin-bottom:20px;text-shadow:0 0 60px rgba(99,102,241,.12)}
+.hero-title-accent{font-weight:800;background:linear-gradient(90deg,#38bdf8 0%,#818cf8 40%,#c084fc 70%,#38bdf8 100%);background-size:300%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:shimmer 6s linear infinite}
+@keyframes shimmer{0%{background-position:200%}100%{background-position:-200%}}
+
+/* hover state — glow intensifies */
+.hero-title-accent.gathering{
+  text-shadow:0 0 40px rgba(96,165,250,.55),0 0 80px rgba(96,165,250,.2);
+  filter:brightness(1.15);
+}
+.hero-sub{font-size:15px;font-weight:300;color:rgba(255,255,255,.45);max-width:460px;line-height:1.65;margin-bottom:32px;letter-spacing:-.01em}
+.hero-cta{display:flex;align-items:center;gap:14px}
+/* CTA primary — orbit glow */
+.btn-hero-primary{padding:14px 0;min-width:164px;text-align:center;border:none;border-radius:980px;font-family:inherit;font-size:15px;font-weight:600;color:#fff;background:linear-gradient(135deg,rgba(0,130,255,.95),rgba(0,100,220,.9));cursor:pointer;transition:transform .25s cubic-bezier(.16,1,.3,1),box-shadow .25s;letter-spacing:-.01em;position:relative;overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,.15) inset,0 8px 32px rgba(0,113,227,.45),0 2px 8px rgba(0,0,0,.3);backdrop-filter:blur(12px)}
+.btn-hero-primary::before{content:'';position:absolute;inset:-2px;border-radius:980px;background:conic-gradient(from var(--a,0deg),transparent 60%,rgba(100,180,255,.6) 80%,transparent 100%);animation:orbitLine 3s linear infinite;opacity:0;transition:opacity .3s}
+.btn-hero-primary:hover::before{opacity:1}
+.btn-hero-primary:hover{transform:scale(1.03);box-shadow:0 6px 28px rgba(0,113,227,.45)}
+@property --a{syntax:"<angle>";initial-value:0deg;inherits:false}
+@keyframes orbitLine{to{--a:360deg}}
+.btn-hero-ghost{padding:14px 0;min-width:164px;text-align:center;border:1px solid rgba(255,255,255,.2);border-radius:980px;font-family:inherit;font-size:15px;font-weight:500;color:rgba(255,255,255,.9);background:rgba(255,255,255,.07);cursor:pointer;transition:all .35s cubic-bezier(.16,1,.3,1);letter-spacing:-.01em;backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);box-shadow:inset 0 1.5px 0 rgba(255,255,255,.18),inset 0 -1px 0 rgba(0,0,0,.12),inset 0 0 20px rgba(255,255,255,.03),0 6px 24px rgba(0,0,0,.3),0 1px 0 rgba(255,255,255,.05)}
+.btn-hero-ghost:hover{border-color:rgba(255,255,255,.35);color:#fff;background:rgba(255,255,255,.12);box-shadow:inset 0 1.5px 0 rgba(255,255,255,.25),inset 0 -1px 0 rgba(0,0,0,.1),inset 0 0 24px rgba(255,255,255,.05),0 10px 32px rgba(0,0,0,.35);transform:translateY(-2px) scale(1.02)}
+/* scroll hint */
+
+
+/* ══════════════════════════════════════════
+   PLATFORM SECTION
+══════════════════════════════════════════ */
+.platform{background:#000;padding:80px 0 0;}
+.platform-head{text-align:center;max-width:640px;margin:0 auto;padding:80px 24px 48px}
+.platform-sub{font-size:17px;font-weight:300;color:var(--fog);line-height:1.7;margin-top:14px}
+.platform-preview-wrap{padding:0 24px 0;display:flex;justify-content:center}
+.platform-preview{width:100%;max-width:1000px;border-radius:16px;overflow:hidden;border:1px solid rgba(255,255,255,.08);box-shadow:0 0 0 1px rgba(255,255,255,.03),0 32px 80px rgba(0,0,0,.65)}
+.preview-bar{height:38px;background:#1c1c1e;border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;padding:0 14px;gap:7px}
+.pd{width:11px;height:11px;border-radius:50%}
+.preview-bar-ttl{font-size:11px;font-family:'JetBrains Mono',monospace;color:rgba(255,255,255,.2);margin:0 auto;letter-spacing:.01em}
+.preview-body{display:flex;height:380px;background:#0d0d0f}
+.psb{width:200px;border-right:1px solid rgba(255,255,255,.05);padding:14px 10px;display:flex;flex-direction:column;gap:2px;flex-shrink:0}
+.psb-lbl{font-size:9px;font-weight:600;color:rgba(255,255,255,.18);letter-spacing:.16em;text-transform:uppercase;padding:4px 8px 8px;font-family:'JetBrains Mono',monospace}
+.psi{padding:7px 10px;border-radius:7px;font-size:12px;display:flex;align-items:center;gap:8px;font-weight:400;transition:background .15s}
+.psi.on{background:rgba(64,156,255,.1);color:#93c5fd;font-weight:500}
+.psi:not(.on){color:rgba(255,255,255,.28)}
+.psidot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.pmain{flex:1;padding:16px 18px;overflow:hidden}
+.ptabs{display:flex;gap:2px;margin-bottom:14px;border-bottom:1px solid rgba(255,255,255,.05);padding-bottom:14px}
+.ptab{padding:5px 14px;border-radius:7px;font-size:12px;font-weight:500;transition:all .15s;cursor:default}
+.ptab.on{background:rgba(64,156,255,.12);color:#93c5fd;border:1px solid rgba(64,156,255,.2)}
+.ptab:not(.on){color:rgba(255,255,255,.2)}
+.pcard{background:rgba(255,255,255,.025);border-radius:10px;border:1px solid rgba(255,255,255,.07);overflow:hidden}
+.pcard-hd{padding:9px 16px;border-bottom:1px solid rgba(255,255,255,.06);background:rgba(64,156,255,.06);font-size:11.5px;font-weight:600;color:#93c5fd;letter-spacing:.01em}
+.prow{display:flex;align-items:center;padding:8px 16px;border-bottom:1px solid rgba(255,255,255,.03);gap:12px;font-size:12px}
+.prow:last-child{border:none}
+.prow-lbl{color:rgba(255,255,255,.22);width:120px;flex-shrink:0;font-weight:400}
+.prow-val{color:rgba(255,255,255,.75);flex:1;font-weight:500;font-family:'JetBrains Mono',monospace;font-size:11.5px}
+.pnum{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700;flex-shrink:0;font-family:'JetBrains Mono',monospace}
+.pbadge{padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;flex-shrink:0;letter-spacing:.02em}
+.platform-arch-wrap{padding:0 24px;display:flex;justify-content:center;margin-bottom:80px}
+.platform-arch{width:100%;max-width:1200px;position:relative;background:linear-gradient(145deg,rgba(13,16,32,.97) 0%,rgba(7,9,18,.99) 100%);border-radius:20px;border:none;box-shadow:0 4px 24px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.06);padding:60px 40px;overflow:hidden}
+.platform-arch::before{content:'';position:absolute;inset:0;border-radius:20px;background:radial-gradient(ellipse at 25% 15%,rgba(0,120,255,.1) 0%,rgba(0,60,180,.04) 40%,transparent 65%);pointer-events:none}
+.platform-arch::after{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(120,180,255,.22) 35%,rgba(170,215,255,.35) 50%,rgba(120,180,255,.22) 65%,transparent);border-radius:20px 20px 0 0;pointer-events:none}
+.arch-flow{display:flex;align-items:center;justify-content:space-between;position:relative;z-index:2}
+.arch-stage{flex:1;display:flex;flex-direction:column;align-items:center;position:relative}
+.arch-stage:not(:last-child)::after{content:'';position:absolute;top:50%;right:-30px;width:60px;height:2px;background:linear-gradient(90deg, rgba(0,113,227,.6), rgba(0,113,227,.2));transform:translateY(-1px)}
+.arch-stage:not(:last-child)::before{content:'';position:absolute;top:50%;right:-10px;width:0;height:0;border-left:8px solid rgba(0,113,227,.6);border-top:4px solid transparent;border-bottom:4px solid transparent;transform:translateY(-2px)}
+.stage-icon{width:80px;height:80px;border-radius:20px;background:linear-gradient(145deg, rgba(13,16,32,.97), rgba(7,9,18,.99));border:2px solid rgba(0,113,227,.2);display:flex;align-items:center;justify-content:center;margin-bottom:20px;position:relative;overflow:hidden;transition:all .4s cubic-bezier(.16,1,.3,1)}
+.stage-icon::before{content:'';position:absolute;inset:0;border-radius:18px;background:radial-gradient(circle at 30% 30%, rgba(0,113,227,.15) 0%, transparent 60%);opacity:0;transition:opacity .4s}
+.stage-icon:hover{border-color:rgba(0,113,227,.6);transform:translateY(-4px)}
+.stage-icon:hover::before{opacity:1}
+.stage-icon svg{width:36px;height:36px;color:var(--blue);transition:transform .4s}
+.stage-icon:hover svg{transform:scale(1.1)}
+.stage-title{font-size:16px;font-weight:600;color:#fff;margin-bottom:8px;letter-spacing:-.2px}
+.stage-desc{font-size:13px;color:var(--fog);text-align:center;max-width:180px;line-height:1.5}
+.stage-meta{margin-top:12px;font-size:11px;color:rgba(0,113,227,.8);font-weight:500;text-align:center;font-family:'JetBrains Mono',monospace}
+/* ── Platform new elements ── */
+.prev-record{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.03);cursor:default;transition:background .15s}
+.prev-record-active{background:rgba(64,156,255,.07)}
+.prev-record:hover{background:rgba(255,255,255,.03)}
+.prev-stage-badge{font-size:10px;font-weight:600;padding:2px 7px;border-radius:4px;letter-spacing:.02em;flex-shrink:0}
+.pagent-row{display:grid;grid-template-columns:110px 1fr 1fr 1fr 70px;gap:0;padding:7px 10px;border-radius:6px;align-items:center;transition:background .15s}
+.pagent-row:hover{background:rgba(255,255,255,.03)}
+.pagent-field{font-size:11px;color:rgba(255,255,255,.35);font-weight:500}
+.pagent-val{font-size:11.5px;font-family:'JetBrains Mono',monospace;font-weight:500}
+.pagent-agree{color:rgba(255,255,255,.65)}
+.pagent-conflict{color:#fcd34d}
+/* nums strip */
+.platform-nums{display:flex;max-width:1200px;margin:0 auto;padding:0 24px;border-top:1px solid rgba(255,255,255,.08);margin-top:0}
+.pnum-item{flex:1;padding:56px 36px;border-right:1px solid rgba(255,255,255,.08);transition:all .4s cubic-bezier(.16,1,.3,1);cursor:default;position:relative;background:linear-gradient(145deg, rgba(0,0,0,.8) 0%, rgba(5,5,10,.95) 100%)}
+.pnum-item::after{content:'';position:absolute;bottom:0;left:36px;right:36px;height:3px;background:linear-gradient(90deg,transparent,var(--blue),transparent);transform:scaleX(0);transition:transform .5s cubic-bezier(.16,1,.3,1)}
+.pnum-item:hover{background:linear-gradient(145deg, rgba(0,113,227,.03) 0%, rgba(0,80,160,.05) 100%);transform:translateY(-2px)}
+.pnum-item:hover::after{transform:scaleX(1)}
+.pnum-item:last-child{border-right:none}
+.pnum-val{font-size:52px;font-weight:800;color:#fff;letter-spacing:-2px;line-height:1;margin-bottom:16px;font-family:'JetBrains Mono',monospace;transition:all .4s;background:linear-gradient(135deg, #fff 0%, rgba(64,156,255,.9) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.pnum-item:hover .pnum-val{background:linear-gradient(135deg, var(--blue) 0%, #54a3ff 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;transform:scale(1.05)}
+.pnum-percent{font-size:28px;font-weight:700;color:var(--blue);margin-left:2px}
+.pnum-label{font-size:15px;font-weight:600;color:#e2e8f0;margin-bottom:8px;letter-spacing:-.3px;transition:color .4s}
+.pnum-item:hover .pnum-label{color:#fff}
+.pnum-item:last-child{border-right:none}
+.pnum-val{font-size:48px;font-weight:800;color:#fff;letter-spacing:-2px;line-height:1;margin-bottom:12px;font-family:'JetBrains Mono',monospace;transition:color .3s}
+.pnum-item:hover .pnum-val{color:var(--blue)}
+.pnum-item{flex:1;padding:48px 32px;border-right:1px solid rgba(255,255,255,.08);transition:background .3s;cursor:default;position:relative}.pnum-item::after{content:'';position:absolute;bottom:0;left:32px;right:32px;height:2px;background:linear-gradient(90deg,transparent,var(--blue),transparent);transform:scaleX(0);transition:transform .4s cubic-bezier(.16,1,.3,1)}.pnum-item:hover{background:rgba(0,113,227,.04)}.pnum-item:hover::after{transform:scaleX(1)}
+.pnum-item:hover{background:rgba(0,113,227,.04)}
+.pnum-plus{font-size:32px;font-weight:700;color:var(--blue);vertical-align:super;margin-left:1px}
+.pnum-unit{font-size:24px;font-weight:600;color:var(--blue);margin-left:4px;letter-spacing:-1px}
+.pnum-label{font-size:14px;font-weight:600;color:#ccc;margin-bottom:6px;letter-spacing:-.2px}
+.pnum-note{font-size:12.5px;font-weight:300;color:var(--fog);line-height:1.6}
+
+/* ── Card stagger reveal: animation-based (no initial opacity:0) ── */
+@keyframes cardReveal{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}
+.features-grid.visible .feat-card,.how-steps.visible .how-step,.testi-grid.visible .testi-card{animation:cardReveal .55s cubic-bezier(.16,1,.3,1) both}
+.features-grid.visible .feat-card:nth-child(1),.how-steps.visible .how-step:nth-child(1),.testi-grid.visible .testi-card:nth-child(1){animation-delay:.04s}
+.features-grid.visible .feat-card:nth-child(2),.how-steps.visible .how-step:nth-child(2),.testi-grid.visible .testi-card:nth-child(2){animation-delay:.12s}
+.features-grid.visible .feat-card:nth-child(3),.how-steps.visible .how-step:nth-child(3),.testi-grid.visible .testi-card:nth-child(3){animation-delay:.20s}
+.features-grid.visible .feat-card:nth-child(4),.testi-grid.visible .testi-card:nth-child(4){animation-delay:.28s}
+.features-grid.visible .feat-card:nth-child(5),.testi-grid.visible .testi-card:nth-child(5){animation-delay:.36s}
+.features-grid.visible .feat-card:nth-child(6),.testi-grid.visible .testi-card:nth-child(6){animation-delay:.44s}
+/*══════════════════════════════════════════
+   FEATURES
+══════════════════════════════════════════ */
+.section{padding:96px 24px;background:#000}
+.section-inner{max-width:1080px;margin:0 auto}
+.section-head{text-align:center;margin-bottom:56px}
+.eyebrow{font-size:11px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--blue);margin-bottom:14px;display:inline-block;position:relative}
+.eyebrow::after{content:'';position:absolute;bottom:-4px;left:0;width:100%;height:1px;background:var(--blue);opacity:0.35;transform:scaleX(0.4);transform-origin:left;transition:transform .4s var(--ease)}
+.reveal.visible .eyebrow::after,.visible .eyebrow::after{transform:scaleX(1)}
+.h2{font-size:clamp(32px,4vw,48px);font-weight:700;line-height:1.1;letter-spacing:-1.5px;color:#fff;margin-bottom:14px}
+.section-sub{font-size:17px;font-weight:300;color:var(--fog);max-width:460px;margin:0 auto;line-height:1.7}
+.features-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.feat-card{padding:32px 36px 36px;background:linear-gradient(145deg,rgba(13,16,32,.97) 0%,rgba(7,9,18,.99) 100%);border-radius:20px;border:none;box-shadow:0 4px 24px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.06);transition:box-shadow .3s,transform .3s;cursor:default;position:relative;overflow:hidden}
+.feat-card::before{content:'';position:absolute;inset:0;border-radius:20px;background:radial-gradient(ellipse at 25% 15%,rgba(0,120,255,.1) 0%,rgba(0,60,180,.04) 40%,transparent 65%);pointer-events:none;z-index:0}.feat-card::after{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(120,180,255,.22) 35%,rgba(170,215,255,.35) 50%,rgba(120,180,255,.22) 65%,transparent);border-radius:20px 20px 0 0;pointer-events:none;z-index:2}
+.feat-card:hover{transform:translateY(-6px);box-shadow:0 32px 80px rgba(0,0,0,.7),0 0 60px rgba(0,80,255,.08)}
+.feat-card .feat-num,.feat-card .feat-title,.feat-card .feat-desc,.feat-card .feat-line{position:relative;z-index:1}
+.feat-num{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;color:rgba(0,113,227,.6);letter-spacing:.12em;margin-bottom:20px;transition:color .3s}
+.feat-card:hover .feat-num{color:var(--blue)}
+.feat-line{height:2px;width:32px;background:rgba(255,255,255,.1);border-radius:2px;margin-top:20px;transition:width .4s cubic-bezier(.16,1,.3,1),background .3s}
+.feat-card:hover .feat-line{width:100%;background:linear-gradient(90deg,var(--blue),rgba(0,113,227,.0))}
+.feat-ico{width:40px;height:40px;border-radius:10px;background:rgba(0,113,227,.15);display:flex;align-items:center;justify-content:center;margin-bottom:18px;transition:background .3s,transform .3s}.feat-card:hover .feat-card .feat-ico,.feat-card .feat-title,.feat-card .feat-desc{position:relative;z-index:1}
+.feat-ico{background:rgba(0,113,227,.25);transform:scale(1.1)}
+.feat-ico svg{width:20px;height:20px;color:var(--blue)}
+.feat-title{font-size:15px;font-weight:600;color:#f0f0f0;margin-bottom:8px;letter-spacing:-.2px}
+.feat-desc{font-size:13.5px;font-weight:300;color:var(--fog);line-height:1.72}
+
+/* ══════════════════════════════════════════
+   HOW IT WORKS
+══════════════════════════════════════════ */
+.how{background:#000;min-height:100vh;display:flex;align-items:center;padding:96px 24px}
+.how>*{width:100%}
+.how .eyebrow{color:var(--blue)}
+.how .h2{color:#fff}
+.how .section-sub{color:var(--fog)}
+.how-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:64px}
+
+.how-step{padding:52px 44px 56px;background:linear-gradient(145deg,rgba(13,16,32,.97) 0%,rgba(7,9,18,.99) 100%);border-radius:20px;display:flex;flex-direction:column;gap:0;min-height:420px;transition:transform .35s cubic-bezier(.16,1,.3,1),box-shadow .35s;border:none;position:relative;overflow:hidden}.how-step::before{content:'';position:absolute;inset:0;border-radius:20px;background:radial-gradient(ellipse at 25% 15%,rgba(0,120,255,.1) 0%,rgba(0,60,180,.04) 40%,transparent 65%);pointer-events:none;z-index:0}.how-step:hover{transform:translateY(-6px);box-shadow:0 32px 80px rgba(0,0,0,.7),0 0 60px rgba(0,80,255,.08)}
+.eb-step{border:none}
+.eb-canvas{position:absolute;inset:-48px;width:calc(100% + 96px);height:calc(100% + 96px);pointer-events:none;z-index:0}
+.eb-glow{position:absolute;inset:0;border-radius:20px;background:radial-gradient(ellipse at 50% 0%,rgba(0,113,227,.1) 0%,transparent 60%);pointer-events:none;z-index:0}
+.how-step-body{position:relative;z-index:1}
+.how-num{display:none}
+.how-num svg{width:21px;height:21px;color:var(--blue)}
+.how-step-body{flex:1;display:flex;flex-direction:column}.how-step-n{font-size:10px;font-weight:600;color:var(--blue);opacity:.55;letter-spacing:.14em;text-transform:uppercase;margin-bottom:12px;font-family:'JetBrains Mono',monospace}.how-title{font-size:17px;font-weight:600;color:#f0f0f0;margin-bottom:10px;letter-spacing:-.3px}
+.how-desc{font-size:14px;font-weight:300;color:var(--fog);line-height:1.7}
+
+/* ══════════════════════════════════════════
+   TESTIMONIALS
+══════════════════════════════════════════ */
+.testimonials{padding:96px 24px;background:#000;min-height:100vh;display:flex;align-items:center}
+.testimonials>*{width:100%}
+.testi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:56px}
+.testi-card{background:linear-gradient(145deg,rgba(13,16,32,.97) 0%,rgba(7,9,18,.99) 100%);border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:28px;transition:border-color .3s,box-shadow .3s,transform .3s;position:relative;overflow:hidden}.testi-card::before{content:'"\2019';position:absolute;top:8px;right:16px;font-size:68px;line-height:1;color:rgba(0,113,227,.08);font-family:Georgia,serif;transition:color .3s,transform .3s;transform:translateY(0);pointer-events:none}.testi-card:hover::before{color:rgba(0,113,227,.18);transform:translateY(-3px)}
+.testi-card::before{content:'';position:absolute;inset:-1px;border-radius:16px;background:linear-gradient(135deg,rgba(0,113,227,.25),transparent 50%,rgba(120,80,255,.15));opacity:0;transition:opacity .4s;pointer-events:none}
+.testi-card:hover::before{opacity:1}
+.testi-card::after{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(120,180,255,.22) 40%,rgba(170,215,255,.35) 58%,transparent);border-radius:16px 16px 0 0;pointer-events:none;z-index:2}
+.testi-card:hover{border-color:rgba(0,100,255,.18);box-shadow:0 0 0 1px rgba(0,100,255,.07),0 10px 36px rgba(0,0,0,.5);transform:translateY(-4px)}
+.testi-stars{font-size:11px;color:#f59e0b;letter-spacing:2px;margin-bottom:14px}
+.testi-text{font-size:13.5px;font-weight:300;color:var(--fog);line-height:1.8;margin-bottom:20px;font-style:italic}
+
+.testi-author{display:flex;align-items:center;gap:10px}
+.testi-av{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#fff;flex-shrink:0}
+.testi-name{font-size:13px;font-weight:600;color:#f0f0f0}
+.testi-role{font-size:11.5px;color:var(--mist);margin-top:1px;font-weight:300}
+
+/* ══════════════════════════════════════════
+   CONTACT
+══════════════════════════════════════════ */
+.contact-section{padding:96px 24px;background:#000}
+.contact-wrap{max-width:1080px;margin:0 auto;display:flex;gap:80px;align-items:flex-start}
+.contact-left{flex:1}
+.contact-right{width:400px;flex-shrink:0}
+.contact-form-box{background:linear-gradient(145deg,rgba(13,16,32,.97) 0%,rgba(7,9,18,.99) 100%);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:36px;position:relative;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.06)}.contact-form-box::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(140,200,255,.35) 35%,rgba(180,225,255,.5) 50%,rgba(140,200,255,.35) 65%,transparent);pointer-events:none}
+.ci-items{display:flex;flex-direction:column;gap:18px;margin-top:32px}
+.ci-item{display:flex;align-items:flex-start;gap:12px}
+.ci-ico{width:36px;height:36px;border-radius:9px;background:rgba(0,113,227,.15);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ci-ico svg{width:17px;height:17px;color:var(--blue)}
+.ci-lbl{font-size:10px;font-weight:600;color:var(--fog);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px}
+.ci-val{font-size:13.5px;color:#ccc}
+
+/* ══════════════════════════════════════════
+   FOOTER
+══════════════════════════════════════════ */
+footer{background:#0a0a0a;padding:32px 24px;border-top:1px solid #222}
+.footer-inner{max-width:1080px;margin:0 auto;display:flex;justify-content:space-between;align-items:center}
+.footer-brand{font-size:12.5px;color:#666}
+.footer-links-row{display:flex;gap:24px}
+.footer-links-row a{font-size:12px;color:rgba(255,255,255,.28);text-decoration:none;transition:color .15s}
+.footer-links-row a:hover{color:rgba(255,255,255,.6)}
+
+/* ══════════════════════════════════════════
+   FORM
+══════════════════════════════════════════ */
+.form-group{margin-bottom:16px}
+.form-label{display:block;font-size:11.5px;font-weight:500;color:rgba(255,255,255,.45);margin-bottom:6px;letter-spacing:.03em}
+.form-input{width:100%;height:44px;padding:0 14px;border:1px solid rgba(255,255,255,.1);border-radius:10px;font-family:inherit;font-size:13.5px;color:#e8e8e8;background:rgba(255,255,255,.04);outline:none;transition:border-color .2s,box-shadow .2s}
+.form-input:hover{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.15)}
+.form-input:focus{border-color:rgba(0,130,255,.5);box-shadow:0 0 0 3px rgba(0,113,227,.12);background:rgba(0,40,100,.12)}
+.form-input::placeholder{color:rgba(255,255,255,.22)}
+.form-ta{width:100%;padding:12px 14px;border:1px solid rgba(255,255,255,.1);border-radius:10px;font-family:inherit;font-size:13.5px;color:#e8e8e8;resize:none;min-height:96px;outline:none;transition:border-color .2s,box-shadow .2s,background .2s;line-height:1.6;background:rgba(255,255,255,.05)}
+.form-ta:hover{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.15)}
+.form-ta:focus{border-color:rgba(0,130,255,.5);box-shadow:0 0 0 3px rgba(0,113,227,.12);background:rgba(0,40,100,.12)}
+.form-ta::placeholder{color:rgba(255,255,255,.22)}
+.btn-form{width:100%;padding:13px;border:none;border-radius:10px;font-family:inherit;font-size:14.5px;font-weight:600;color:#fff;background:linear-gradient(135deg,rgba(0,130,255,.95),rgba(0,100,220,.9));cursor:pointer;transition:all .25s cubic-bezier(.16,1,.3,1);letter-spacing:.01em;box-shadow:inset 0 1px 0 rgba(255,255,255,.15),0 6px 24px rgba(0,113,227,.4)}
+.btn-form:hover{background:var(--blue2);box-shadow:0 6px 28px rgba(0,113,227,.45);transform:translateY(-1px)}
+.btn-form:active{transform:translateY(0)}
+.sel-wrap{position:relative}
+.form-sel{width:100%;height:42px;padding:0 14px;border:1px solid rgba(255,255,255,.1);border-radius:10px;font-family:inherit;font-size:13.5px;color:#e8e8e8;background:rgba(255,255,255,.05);outline:none;appearance:none;cursor:pointer;transition:border-color .2s,background .2s}
+.form-sel:hover{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.15)}
+.form-sel:focus{border-color:rgba(0,130,255,.5);box-shadow:0 0 0 3px rgba(0,113,227,.12)}
+.sel-arr{position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none;color:rgba(255,255,255,.4)}
+
+/* ══════════════════════════════════════════
+   AUTH MODAL
+══════════════════════════════════════════ */
+.modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);z-index:1000;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s}
+.modal-ov.open{opacity:1;pointer-events:all}
+.modal-box{background:linear-gradient(145deg,rgba(10,13,26,.97),rgba(5,7,16,.99));border:1px solid rgba(255,255,255,.1);border-radius:24px;box-shadow:0 32px 80px rgba(0,0,0,.8),inset 0 1px 0 rgba(255,255,255,.07);width:100%;max-width:420px;max-height:90vh;overflow-y:auto;transform:scale(.96) translateY(16px);transition:transform .28s cubic-bezier(.16,1,.3,1);padding:36px;position:relative}
+.modal-ov.open .modal-box{transform:none}
+.modal-logo{display:flex;align-items:center;gap:8px;margin-bottom:24px}
+.modal-logo svg{width:18px;height:18px;color:var(--blue)}
+.modal-logo-text{font-size:15px;font-weight:600;color:#fff;letter-spacing:-.2px}
+.modal-title{font-size:24px;font-weight:700;color:#fff;letter-spacing:-.5px;margin-bottom:5px}
+.modal-sub{font-size:13px;font-weight:300;color:rgba(255,255,255,.4);margin-bottom:24px}
+.modal-tabs{display:flex;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:4px;gap:3px;margin-bottom:24px}
+.modal-tab{flex:1;padding:8px;text-align:center;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;border:1px solid transparent;background:transparent;transition:all .2s;color:rgba(255,255,255,.45);border-radius:9px}
+.modal-tab.on{background:rgba(0,113,227,.18);color:#fff;font-weight:600;border-color:rgba(0,113,227,.3)}
+.auth-panel{display:none}
+.auth-panel.on{display:block}
+.iw-btn{display:flex;gap:7px}
+.iw-btn .form-input{flex:1}
+.btn-code{padding:0 14px;height:40px;border:1px solid rgba(0,113,227,.35);border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;color:var(--blue);background:rgba(0,113,227,.1);cursor:pointer;white-space:nowrap;transition:all .2s;flex-shrink:0}
+.btn-code:disabled{color:var(--mist);cursor:not-allowed}
+.link-btn{background:none;border:none;color:var(--blue);font-family:inherit;font-size:13px;cursor:pointer;font-weight:500}
+.modal-footer{text-align:center;margin-top:16px;font-size:12.5px;color:var(--fog)}
+.modal-close{position:absolute;top:18px;right:18px;width:28px;height:28px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.4);transition:all .2s}
+.modal-close:hover{background:var(--pale)}
+.modal-close svg{width:11px;height:11px}
+.pw-wrap{position:relative}
+.pw-wrap .form-input{padding-right:36px}
+.pw-tog{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--mist);display:flex;padding:0}
+.pw-tog svg{width:15px;height:15px}
+.forgot-row{text-align:right;margin-top:-5px;margin-bottom:12px}
+.form-check{display:flex;align-items:flex-start;gap:7px;font-size:12px;color:var(--fog);margin-bottom:14px}
+.form-check input{margin-top:3px;accent-color:var(--blue);cursor:pointer;flex-shrink:0}
+.toast-wrap{position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:9999;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:8px}
+.toast{padding:9px 18px;border-radius:980px;background:rgba(15,15,15,.92);color:#fff;font-size:12.5px;font-weight:400;box-shadow:0 4px 20px rgba(0,0,0,.28);backdrop-filter:blur(20px);animation:tIn .2s var(--ease-out)}
+@keyframes tIn{from{opacity:0;transform:translateY(-6px) scale(.97)}to{opacity:1;transform:none}}
+.reveal{opacity:0;transform:translateY(18px);transition:opacity .55s var(--ease),transform .55s var(--ease)}
+.reveal.visible{opacity:1;transform:none;filter:blur(0)}
+
+/* ── Annotation floating labels ── */
+.anno-labels{position:absolute;inset:0;z-index:2;pointer-events:none;overflow:hidden}
+.anno-tag{
+  position:absolute;
+  display:flex;align-items:center;gap:6px;
+  padding:5px 10px 5px 8px;
+  border-radius:6px;
+  border:1px solid rgba(64,156,255,0);
+  background:rgba(0,20,60,0);
+  font-family:'JetBrains Mono',monospace;
+  font-size:11px;font-weight:500;
+  color:rgba(64,156,255,0);
+  white-space:nowrap;
+  pointer-events:none;
+  will-change:transform,opacity;
+  transition:none;
+}
+.anno-tag-dot{
+  width:6px;height:6px;border-radius:50%;
+  background:rgba(64,156,255,0);
+  flex-shrink:0;
+}
+.type-cursor{display:inline-block;color:var(--blue);font-weight:300;margin-left:1px;animation:cur-blink .55s ease-in-out infinite}
+@keyframes cur-blink{0%,100%{opacity:1}50%{opacity:0}}
+
+/* ── Nav underline slide ── */
+.nav-links a{position:relative}
+.nav-links a::after{content:'';position:absolute;bottom:-2px;left:0;width:0;height:1px;background:rgba(255,255,255,.55);transition:width .2s var(--ease)}
+.nav-links a:hover::after{width:100%}
+
+/* ── Feature card icon pop ── */
+.feat-card .feat-ico,.feat-card .feat-title,.feat-card .feat-desc{position:relative;z-index:1}
+.feat-ico{transition:transform .2s var(--ease),background .2s}
+.feat-card:hover .feat-card .feat-ico,.feat-card .feat-title,.feat-card .feat-desc{position:relative;z-index:1}
+.feat-ico{transform:scale(1.1)}
+
+/* ── How step icon lift ── */
+.how-num{will-change:transform}
+.how-step:hover .how-num{transform:translateY(-3px)}
+
+
+
+/* ── Pnum count-up color flash ── */
+@keyframes num-in{from{color:var(--blue);transform:translateY(6px)}to{color:#fff;transform:none}}
+.pnum-val{transition:transform .4s var(--ease)}
+.pnum-val.counted{animation:num-in .5s var(--ease) forwards}
+
+/* ── Scroll progress bar ── */
+#scrollBar{position:fixed;top:0;left:0;height:2px;background:linear-gradient(90deg,var(--blue),var(--bluelt));z-index:9999;width:0%;pointer-events:none;transition:width .08s linear}
+</style>
+</head>
+<body>
+
+<nav id="nav">
+  <div class="nav-inner">
+    <a class="nav-logo" href="#">
+      <div class="nav-logo-mark">
+        <svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="11" cy="11" r="3.8"/><path d="M11 2v2.5M11 17.5V20M2 11h2.5M17.5 11H20M4.9 4.9l1.8 1.8M15.3 15.3l1.8 1.8M4.9 17.1l1.8-1.8M15.3 6.7l1.8-1.8"/></svg>
+      </div>
+      <span class="nav-logo-text">MicrobeCollect</span>
+    </a>
+    <div class="nav-links">
+      <a href="#platform">Platform</a>
+      <a href="#features">Features</a>
+      <a href="#how">How it works</a>
+      <a href="#contact">Contact</a>
+    </div>
+    <div class="nav-actions">
+      <button class="btn-nav-primary" onclick="location.href='/workspace'">Enter Workspace</button>
+    </div>
+  </div>
+</nav>
+
+<!-- ══ HERO — text + buttons only ══ -->
+<section class="hero" id="home">
+  <div id="threeCanvas"></div>
+  <div id="annotationLabels" class="anno-labels"></div>
+  <div class="hero-content">
+    <h1 class="hero-title"><span style="display:block;white-space:nowrap;font-size:clamp(52px,5.8vw,82px)">Annotation that</span><span style="display:block;white-space:nowrap;font-size:clamp(52px,5.8vw,82px)">leaves no dark.</span></h1>
+    <p class="hero-sub">Multi-agent extraction, human review, full source traceability — built for teams who can't afford errors in their data.</p>
+    <div class="hero-cta">
+      <button class="btn-hero-primary" onclick="openAuth('register')">Start for free</button>
+      <button class="btn-hero-ghost" onclick="document.getElementById('contact').scrollIntoView({behavior:'smooth'})">Contact us →</button>
+    </div>
+  </div>
+
+  <!-- wave removed for seamless black transition -->
+</section>
+
+<!-- ══ PLATFORM — architecture + stats ══ -->
+<section class="platform" id="platform">
+
+  <div class="platform-head reveal">
+    <div class="eyebrow" style="color:var(--blue)">The Platform</div>
+    <h2 class="h2" style="min-height:2.3em;color:#fff">
+      <span id="typeTarget"></span><span class="type-cursor" style="opacity:0.4;color:var(--blue)">|</span>
+    </h2>
+    <p class="platform-sub">Multi-agent AI extraction with conflict resolution and human oversight — from document to database with complete traceability.</p>
+  </div>
+
+  <!-- Architecture Diagram -->
+  <div class="platform-arch-wrap reveal">
+    <div class="platform-arch">
+      <div class="arch-flow">
+        
+        <div class="arch-stage">
+          <div class="stage-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+              <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>
+            </svg>
+          </div>
+          <div class="stage-title">Document Ingestion</div>
+          <div class="stage-desc">Papers, patents, databases — any format automatically parsed and prepared</div>
+          <div class="stage-meta">PDF • DOC • XML • TXT</div>
+        </div>
+
+        <div class="arch-stage">
+          <div class="stage-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M20.2 12c-.9-4.8-4.9-8.2-8.2-8.2s-7.3 3.4-8.2 8.2c.9 4.8 4.9 8.2 8.2 8.2s7.3-3.4 8.2-8.2"/>
+              <circle cx="12" cy="12" r="1"/>
+            </svg>
+          </div>
+          <div class="stage-title">Multi-Agent Extraction</div>
+          <div class="stage-desc">GPT-4o, Claude, Gemini work independently to extract structured data</div>
+          <div class="stage-meta">3 × AI AGENTS</div>
+        </div>
+
+        <div class="arch-stage">
+          <div class="stage-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/>
+              <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
+              <path d="m9 14 2 2 4-4"/>
+            </svg>
+          </div>
+          <div class="stage-title">Conflict Resolution</div>
+          <div class="stage-desc">Disagreements automatically flagged for human review and validation</div>
+          <div class="stage-meta">QUALITY CONTROL</div>
+        </div>
+
+        <div class="arch-stage">
+          <div class="stage-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+              <rect x="7" y="7" width="10" height="3"/>
+              <rect x="7" y="14" width="10" height="3"/>
+            </svg>
+          </div>
+          <div class="stage-title">Database Integration</div>
+          <div class="stage-desc">Validated records automatically ingested with complete provenance tracking</div>
+          <div class="stage-meta">API • SQL • EXPORT</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Enhanced Stats -->
+  <div class="platform-nums reveal">
+    <div class="pnum-item">
+      <div class="pnum-val">98<span class="pnum-percent">%</span></div>
+      <div class="pnum-label">Field-level accuracy</div>
+      <div class="pnum-note">Multi-agent consensus outperforms single AI by 23% on scientific data</div>
+    </div>
+    <div class="pnum-item">
+      <div class="pnum-val">2<span class="pnum-unit">min</span></div>
+      <div class="pnum-label">Per record processing</div>
+      <div class="pnum-note">From raw document to validated database entry — 50× faster than manual</div>
+    </div>
+    <div class="pnum-item">
+      <div class="pnum-val">12<span class="pnum-plus">K</span></div>
+      <div class="pnum-label">Records processed daily</div>
+      <div class="pnum-note">Production scale with enterprise-grade reliability and uptime</div>
+    </div>
+    <div class="pnum-item">
+      <div class="pnum-val">100<span class="pnum-percent">%</span></div>
+      <div class="pnum-label">Source traceability</div>
+      <div class="pnum-note">Every extracted value linked to its exact position in source document</div>
+    </div>
+  </div>
+
+</section>
+
+<!-- ══ FEATURES ══ -->
+<section class="section" id="features">
+  <div class="section-inner">
+    <div class="section-head reveal">
+      <div class="eyebrow">Capabilities</div>
+      <h2 class="h2">Annotation shouldn't<br>be this hard.</h2>
+      <p class="section-sub">One workspace for parsing, verification, review, and ingestion — no spreadsheets, no email chains.</p>
+    </div>
+    <div class="features-grid">
+      <div class="feat-card reveal">
+        <div class="eb-glow"></div>
+        <div class="feat-num">01</div>
+        <h3 class="feat-title">Auto Document Parsing</h3>
+        <p class="feat-desc">Upload any document. AI extracts structured fields automatically and anchors each value to its exact location in the source text.</p>
+        <div class="feat-line"></div>
+      </div>
+      <div class="feat-card reveal" style="transition-delay:.05s">
+        <div class="eb-glow"></div>
+        <div class="feat-num">02</div>
+        <h3 class="feat-title">Multi-agent Verification</h3>
+        <p class="feat-desc">AI, annotator, and reviewer outputs shown side-by-side. Conflicts flagged instantly. Adopt the best value in one click.</p>
+        <div class="feat-line"></div>
+      </div>
+      <div class="feat-card reveal" style="transition-delay:.1s">
+        <div class="eb-glow"></div>
+        <div class="feat-num">03</div>
+        <h3 class="feat-title">Staged QC Pipeline</h3>
+        <p class="feat-desc">Proofread → Review → Accept. Independent permissions at each stage. Submissions can be recalled until the next stage begins.</p>
+        <div class="feat-line"></div>
+      </div>
+      <div class="feat-card reveal" style="transition-delay:.02s">
+        <div class="eb-glow"></div>
+        <div class="feat-num">04</div>
+        <h3 class="feat-title">Split-pane Source View</h3>
+        <p class="feat-desc">Source document on the left, annotation panel on the right. Jump to the exact paragraph with one click — no tab switching.</p>
+        <div class="feat-line"></div>
+      </div>
+      <div class="feat-card reveal" style="transition-delay:.07s">
+        <div class="eb-glow"></div>
+        <div class="feat-num">05</div>
+        <h3 class="feat-title">Structured Field Schema</h3>
+        <p class="feat-desc">Fully customisable field schemas aligned to your domain's standards. Every field has a defined type, source, and validation rule.</p>
+        <div class="feat-line"></div>
+      </div>
+      <div class="feat-card reveal" style="transition-delay:.12s">
+        <div class="eb-glow"></div>
+        <div class="feat-num">06</div>
+        <h3 class="feat-title">Per-record Ingestion</h3>
+        <p class="feat-desc">Each record is ingested independently after acceptance. Re-ingestion overwrites cleanly. Every change is snapshotted.</p>
+        <div class="feat-line"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ HOW IT WORKS ══ -->
+<section class="how" id="how">
+  <div class="section-inner" style="width:100%">
+    <div class="section-head reveal" style="text-align:left;margin-bottom:0">
+      <div class="eyebrow">How it works</div>
+      <h2 class="h2" style="max-width:520px">Three steps to publication-grade data.</h2>
+      <p style="font-size:16px;color:var(--fog);font-weight:300;max-width:480px;line-height:1.7;margin-top:12px;margin-bottom:56px">Every data point has a clear owner at each stage. No black boxes, no lost context.</p>
+    </div>
+    <div class="how-steps reveal">
+      <div class="how-step eb-step">
+        <canvas class="eb-canvas"></canvas>
+        <div class="eb-glow"></div>
+        <div class="how-step-body">
+          <div class="how-step-n">Step 01</div>
+          <h4 class="how-title">Upload & proofread</h4>
+          <p class="how-desc">Import any PDF. AI parses and pre-fills all structured fields, anchored to the source paragraph. Annotators then verify each value in a split-pane view — field by field, with full context visible throughout.</p>
+        </div>
+      </div>
+      <div class="how-step eb-step">
+        <canvas class="eb-canvas"></canvas>
+        <div class="eb-glow"></div>
+        <div class="how-step-body">
+          <div class="how-step-n">Step 02</div>
+          <h4 class="how-title">Review & resolve</h4>
+          <p class="how-desc">Reviewers see all agent sources — AI, annotator, and prior versions — side by side. Conflict fields are flagged automatically. One click to adopt the best value and lock the decision with a full audit trail.</p>
+        </div>
+      </div>
+      <div class="how-step eb-step">
+        <canvas class="eb-canvas"></canvas>
+        <div class="eb-glow"></div>
+        <div class="how-step-body">
+          <div class="how-step-n">Step 03</div>
+          <h4 class="how-title">Accept & ingest</h4>
+          <p class="how-desc">Acceptors do a final review per record and push to the database in one click. Re-ingestion overwrites cleanly. Every version is snapshotted, every value traceable back to its origin document.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ TESTIMONIALS ══ -->
+<section class="testimonials" id="voices" style="--eyebrow-c:var(--bluelt)">
+  <div class="section-inner" style="width:100%">
+    <div class="section-head reveal">
+      <div class="eyebrow">Testimonials</div>
+      <h2 class="h2">Trusted by research teams.</h2>
+      <p class="section-sub">From microbiologists to bioinformaticians — teams who annotate at scale.</p>
+    </div>
+    <div class="testi-grid">
+      <div class="testi-card reveal">
+        <div class="testi-stars">★★★★★</div>
+        <p class="testi-text">"The three-source comparison is a game changer. What used to take half a day to reconcile is now instant — conflicts are highlighted the moment you open a file."</p>
+        <div class="testi-author"><div class="testi-av" style="background:linear-gradient(135deg,#1d4ed8,#1e3a8a)">Z</div><div><div class="testi-name">Zhang Mingyuan</div><div class="testi-role">Institute of Microbiology, CAS · Researcher</div></div></div>
+      </div>
+      <div class="testi-card reveal" style="transition-delay:.06s">
+        <div class="testi-stars">★★★★★</div>
+        <p class="testi-text">"The split PDF view finally lets me stay in one place. Click a field, jump to the exact paragraph — no more Alt-Tab between the paper and a spreadsheet."</p>
+        <div class="testi-author"><div class="testi-av" style="background:linear-gradient(135deg,#7c3aed,#4c1d95)">L</div><div><div class="testi-name">Li Xiaoyan</div><div class="testi-role">Peking University · Associate Professor</div></div></div>
+      </div>
+      <div class="testi-card reveal" style="transition-delay:.12s">
+        <div class="testi-stars">★★★★☆</div>
+        <p class="testi-text">"We process hundreds of papers concurrently. The staged workflow means every data point has a clear owner — tracing an error back to its source takes seconds."</p>
+        <div class="testi-author"><div class="testi-av" style="background:linear-gradient(135deg,#d97706,#92400e)">W</div><div><div class="testi-name">Wang Bowen</div><div class="testi-role">Zhejiang University · Postdoctoral Researcher</div></div></div>
+      </div>
+      <div class="testi-card reveal" style="transition-delay:.04s">
+        <div class="testi-stars">★★★★★</div>
+        <p class="testi-text">"Before MicrobeCollect, our team spent more time arguing about which source to trust than actually annotating. The conflict detection alone saved us weeks on our last project."</p>
+        <div class="testi-author"><div class="testi-av" style="background:linear-gradient(135deg,#059669,#065f46)">C</div><div><div class="testi-name">Chen Rui</div><div class="testi-role">Wuhan University · PhD Candidate, Environmental Microbiology</div></div></div>
+      </div>
+      <div class="testi-card reveal" style="transition-delay:.10s">
+        <div class="testi-stars">★★★★★</div>
+        <p class="testi-text">"The per-record ingestion model is exactly what we needed. We can accept one strain at a time without waiting for the entire batch — our database stays current throughout the review cycle."</p>
+        <div class="testi-author"><div class="testi-av" style="background:linear-gradient(135deg,#be185d,#831843)">S</div><div><div class="testi-name">Sun Mengqi</div><div class="testi-role">Shanghai Jiao Tong University · Research Associate</div></div></div>
+      </div>
+      <div class="testi-card reveal" style="transition-delay:.16s">
+        <div class="testi-stars">★★★★☆</div>
+        <p class="testi-text">"We integrated MicrobeCollect into a project covering 400+ strains. The QC pipeline held up, the audit trail was clean, and our submission passed review on the first attempt."</p>
+        <div class="testi-author"><div class="testi-av" style="background:linear-gradient(135deg,#0891b2,#164e63)">H</div><div><div class="testi-name">He Junfeng</div><div class="testi-role">Institute of Oceanology, CAS · Senior Engineer</div></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ CONTACT ══ -->
+<section class="contact-section" id="contact">
+  <div class="contact-wrap">
+    <div class="contact-left reveal">
+      <div class="eyebrow">Contact</div>
+      <h2 class="h2" style="font-size:clamp(28px,3.5vw,42px);color:#fff">Any questions?<br>We're here.</h2>
+      <p class="section-sub" style="text-align:left;margin:14px 0 0;font-size:15px;color:#888">Feature inquiry, partnership, or technical support — we reply within 24 hours.</p>
+      <div class="ci-items">
+        <div class="ci-item"><div class="ci-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div><div><div class="ci-lbl">Email</div><div class="ci-val">hr@zhilingresearch.com</div></div></div>
+        <div class="ci-item"><div class="ci-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg></div><div><div class="ci-lbl">Location</div><div class="ci-val">Chengdu, Sichuan</div></div></div>
+      </div>
+    </div>
+    <div class="contact-right reveal" style="transition-delay:.1s">
+      <div class="contact-form-box">
+        <h3 style="font-size:17px;font-weight:600;color:#f0f0f0;margin-bottom:3px;letter-spacing:-.2px">Send a message</h3>
+        <p style="font-size:12.5px;color:#888;margin-bottom:18px;font-weight:300">We'll get back to you shortly.</p>
+        <div class="form-group"><label class="form-label">Name</label><input class="form-input" placeholder="Your name"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="form-group"><label class="form-label">Email</label><input class="form-input" placeholder="you@example.com" type="email"></div>
+          <div class="form-group"><label class="form-label">Phone</label><input class="form-input" placeholder="+86" type="tel"></div>
+        </div>
+        <div class="form-group"><label class="form-label">Topic</label><div class="sel-wrap"><select class="form-sel"><option>Select a topic</option><option>Feature inquiry</option><option>Partnership</option><option>Technical support</option><option>Custom development</option><option>Other</option></select><span class="sel-arr"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" style="width:11px;height:11px"><path d="M2 4l4 4 4-4"/></svg></span></div></div>
+        <div class="form-group"><label class="form-label">Message</label><textarea class="form-ta" placeholder="Tell us about your use case…"></textarea></div>
+        <button class="btn-form" onclick="showToast('Message sent — we\'ll be in touch')">Send message</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-inner">
+    <span class="footer-brand">© 2026 MicrobeCollect. All rights reserved.</span>
+    <div class="footer-links-row"><a href="#">Privacy</a><a href="#">Terms</a><a href="#contact">Contact</a></div>
+  </div>
+</footer>
+
+<!-- AUTH MODAL -->
+<div class="modal-ov" id="authModal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeAuth()"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 1l10 10M11 1L1 11"/></svg></button>
+    <div class="modal-logo"><svg width="20" height="20" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="11" cy="11" r="3.8"/><path d="M11 2v2.5M11 17.5V20M2 11h2.5M17.5 11H20"/></svg><span class="modal-logo-text">MicrobeCollect</span></div>
+    <div id="loginPanel">
+      <h2 class="modal-title">Welcome back</h2>
+      <p class="modal-sub">Sign in with your phone number</p>
+      <div class="modal-tabs"><button class="modal-tab on" onclick="switchLoginTab('sms',this)">Verification code</button><button class="modal-tab" onclick="switchLoginTab('pwd',this)">Password</button></div>
+      <div id="loginSms" class="auth-panel on">
+        <div class="form-group"><label class="form-label">Phone number</label><input class="form-input" placeholder="+86 Phone number" type="tel"></div>
+        <div class="form-group"><label class="form-label">Verification code</label><div class="iw-btn"><input class="form-input" placeholder="6-digit code"><button class="btn-code" id="btnSms" onclick="sendCode('btnSms')">Send code</button></div></div>
+        <button class="btn-form" onclick="doLogin()">Sign in</button>
+      </div>
+      <div id="loginPwd" class="auth-panel">
+        <div class="form-group"><label class="form-label">Phone number</label><input class="form-input" placeholder="+86 Phone number" type="tel"></div>
+        <div class="form-group"><label class="form-label">Password</label><div class="pw-wrap"><input class="form-input" id="lPwd" type="password" placeholder="Enter password"><button class="pw-tog" onclick="togglePw('lPwd',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
+        <div class="forgot-row"><button class="link-btn" onclick="switchTo('forgot')">Forgot password?</button></div>
+        <button class="btn-form" onclick="doLogin()">Sign in</button>
+      </div>
+      <div class="modal-footer">No account? <button class="link-btn" onclick="switchTo('register')">Create one →</button></div>
+    </div>
+    <div id="registerPanel" style="display:none">
+      <h2 class="modal-title">Create account</h2>
+      <p class="modal-sub">Register with your phone number</p>
+      <div class="form-group"><label class="form-label">Phone number</label><div class="iw-btn"><input class="form-input" placeholder="+86 Phone number" type="tel"><button class="btn-code" id="btnReg" onclick="sendCode('btnReg')">Send code</button></div></div>
+      <div class="form-group"><label class="form-label">Verification code</label><input class="form-input" placeholder="6-digit code"></div>
+      <div class="form-group"><label class="form-label">Full name</label><input class="form-input" placeholder="Your name"></div>
+      <div class="form-group"><label class="form-label">Set password</label><div class="pw-wrap"><input class="form-input" id="rPwd" type="password" placeholder="At least 8 characters"><button class="pw-tog" onclick="togglePw('rPwd',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
+      <div class="form-check"><input type="checkbox" id="regAgree"><label for="regAgree">I agree to the <button class="link-btn" style="font-size:12px">Terms of Service</button> and <button class="link-btn" style="font-size:12px">Privacy Policy</button></label></div>
+      <button class="btn-form" onclick="doRegister()">Create account</button>
+      <div class="modal-footer">Have an account? <button class="link-btn" onclick="switchTo('login')">Sign in →</button></div>
+    </div>
+    <div id="forgotPanel" style="display:none">
+      <h2 class="modal-title">Reset password</h2>
+      <p class="modal-sub">Verify your phone to reset</p>
+      <div class="form-group"><label class="form-label">Phone number</label><div class="iw-btn"><input class="form-input" placeholder="+86 Registered phone" type="tel"><button class="btn-code" id="btnFgt" onclick="sendCode('btnFgt')">Send code</button></div></div>
+      <div class="form-group"><label class="form-label">Verification code</label><input class="form-input" placeholder="6-digit code"></div>
+      <div class="form-group"><label class="form-label">New password</label><div class="pw-wrap"><input class="form-input" id="fPwd" type="password" placeholder="At least 8 characters"><button class="pw-tog" onclick="togglePw('fPwd',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
+      <button class="btn-form" onclick="doReset()">Reset password</button>
+      <div class="modal-footer">Remember it? <button class="link-btn" onclick="switchTo('login')">Back to sign in</button></div>
+    </div>
+  </div>
+</div>
+
+<div id="scrollBar"></div>
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+// ── Three.js Hero Scene ─────────────────────────────────────
+(function(){
+  var THREE = window.THREE;
+  if(!THREE){ console.error('THREE not loaded'); return; }
+
+  var container = document.getElementById('threeCanvas');
+  if(!container) return;
+
+  /* ── Renderer ── */
+  var W = container.clientWidth, H = container.clientHeight;
+  var renderer = new THREE.WebGLRenderer({antialias:true,alpha:true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  renderer.setSize(W,H);
+  renderer.setClearColor(0x000000,0);  /* transparent so beam canvas shows through */
+  container.appendChild(renderer.domElement);
+
+  /* ── Scene / Camera ── */
+  var scene  = new THREE.Scene();
+  /* No fog — particles must be crisp and visible */
+  var camera = new THREE.PerspectiveCamera(66,W/H,0.1,200);
+  camera.position.set(0,4,26);
+  camera.lookAt(0,-2,0);
+
+  /* ── Resize ── */
+  function onResize(){
+    W = container.clientWidth; H = container.clientHeight;
+    camera.aspect = W/H; camera.updateProjectionMatrix();
+    renderer.setSize(W,H);
+    resizeBeam();
+  }
+  new ResizeObserver(onResize).observe(container);
+
+  /* ── Mouse ── */
+  var mx=0, my=0.4, tmx=0, tmy=0.4;
+  window.addEventListener('mousemove',function(e){
+    var r=document.getElementById('home').getBoundingClientRect();
+    tmx = ((e.clientX-r.left)/r.width)*2-1;
+    tmy = -((e.clientY-r.top)/r.height)*2+1;
+  },{passive:true});
+
+  /* ── Lights ── */
+  scene.add(new THREE.AmbientLight(0x080818,1.2));
+  scene.add(new THREE.HemisphereLight(0x0d1a3a,0x000000,0.6));
+
+  var spot = new THREE.SpotLight(0xffffff,0);
+  spot.angle    = Math.PI/4.0;
+  spot.penumbra = 0.5;
+  spot.decay    = 1.2;
+  spot.distance = 100;
+  spot.position.set(0,18,8);
+  scene.add(spot);
+  scene.add(spot.target);
+
+  /* ── Particles — cone distribution with z-depth layering ── */
+  var N    = 8000;
+  var pos  = new Float32Array(N*3);
+  var col  = new Float32Array(N*3);
+  var sz   = new Float32Array(N);
+  var ph   = new Float32Array(N);
+  var orig = new Float32Array(N*3);
+  var act  = new Float32Array(N);
+  var vel  = new Float32Array(N*3);   /* velocity for flow + repulsion */
+  var layer= new Float32Array(N);     /* 0=bg, 1=mid, 2=fg — controls size/speed/brightness */
+
+  for(var i=0;i<N;i++){
+    /* z-layer: assign depth band */
+    var lr = Math.random();
+    var lv = lr < 0.4 ? 0 : (lr < 0.75 ? 1 : 2);  /* 40% bg, 35% mid, 25% fg */
+    layer[i] = lv;
+
+    /* layer-specific z range: bg=far, fg=near */
+    var zBase = lv===0 ? -6 : (lv===1 ? -2 : 2);
+    var zSpread = lv===0 ? 3 : (lv===1 ? 2 : 1.5);
+
+    /* bias distribution: fewer particles near apex (top), more mid/bottom
+       yOff biased toward larger values → fewer near y=18 */
+    var yOff  = Math.pow(Math.random(), 0.55) * 28;
+    var slope = 0.44;
+    var spread = yOff*slope + 0.8;
+    var ang   = Math.random()*Math.PI*2;
+    /* stronger edge bias at mid-range, core empty near top */
+    var radPow = yOff < 8 ? 1.8 : 0.65;
+    var rad   = Math.pow(Math.random(), radPow)*spread;
+    var x     = Math.cos(ang)*rad;
+    var y     = 18 - yOff + (Math.random()-0.5)*1.8;
+    var z     = zBase + (Math.random()-0.5)*zSpread;
+
+    orig[i*3]=pos[i*3]=x;
+    orig[i*3+1]=pos[i*3+1]=y;
+    orig[i*3+2]=pos[i*3+2]=z;
+
+    /* layer-based base colour and size */
+    /* white glow: dim outside beam, bright white inside */
+    var br = 0.28 + lv*0.10;
+    col[i*3]=br; col[i*3+1]=br; col[i*3+2]=br;
+    var baseSize = lv===0 ? 0.32+Math.random()*0.36
+                 : lv===1 ? 0.55+Math.random()*0.60
+                 :           0.80+Math.random()*0.90;
+    sz[i]  = baseSize;
+    ph[i]  = Math.random()*Math.PI*2;
+    vel[i*3]=0; vel[i*3+1]=0; vel[i*3+2]=0;
+  }
+
+  /* scroll state for particle lift */
+  var scrollRatio = 0;
+  window.addEventListener('scroll', function(){
+    var hero = document.getElementById('home');
+    var heroH = hero ? hero.offsetHeight : window.innerHeight;
+    scrollRatio = Math.min(window.scrollY / heroH, 1);
+  }, {passive:true});
+
+  var geo = new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  geo.setAttribute('aColor',  new THREE.BufferAttribute(col,3));
+  geo.setAttribute('aSize',   new THREE.BufferAttribute(sz,1));
+
+  var mat = new THREE.ShaderMaterial({
+    uniforms:{uDPR:{value:renderer.getPixelRatio()}},
+    vertexShader:[
+      'attribute vec3 aColor;',
+      'attribute float aSize;',
+      'varying vec3 vCol;',
+      'varying float vA;',
+      'uniform float uDPR;',
+      'void main(){',
+      '  vCol=aColor;',
+      '  vec4 mv=modelViewMatrix*vec4(position,1.0);',
+      '  float d=-mv.z;',
+      '  vA=smoothstep(55.0,2.0,d);',
+      '  gl_PointSize=aSize*uDPR*(120.0/max(d,0.1));',
+      '  gl_Position=projectionMatrix*mv;',
+      '}'
+    ].join('\n'),
+    fragmentShader:[
+      'varying vec3 vCol;',
+      'varying float vA;',
+      'void main(){',
+      '  vec2 uv=gl_PointCoord-0.5;',
+      '  float r=length(uv);',
+      '  if(r>0.5)discard;',
+      '  float core=smoothstep(0.5,0.0,r);',
+      '  float halo=smoothstep(0.5,0.32,r)*0.28;',
+      '  gl_FragColor=vec4(vCol,(core+halo)*vA);',
+      '}'
+    ].join('\n'),
+    transparent:true,
+    depthWrite:false,
+    depthTest:false,
+    blending:THREE.AdditiveBlending
+  });
+
+  var points = new THREE.Points(geo,mat);
+  scene.add(points);
+
+  /* ══ 10 DOT-CLOUD BOXES — varied sizes, spread across bottom ══ */
+  var BOX_DEFS = [
+    /* cx,    cy,     cz,    w,   h,   d,   baseRY, baseRX, speedY, speedX, dotN */
+    /* far back layer — small, deep z */
+    [ -19.0,-13.0, -10.0,  0.9, 0.9, 0.9,   0.80,   0.22,  0.16,   0.12,  160 ],
+    [  -9.5,-12.5,  -9.0,  1.1, 1.1, 1.1,   0.55,   0.18,  0.19,   0.13,  200 ],
+    [   4.0,-12.8,  -8.5,  1.0, 1.0, 1.0,  -0.40,   0.16,  0.18,   0.12,  180 ],
+    [  16.0,-13.2,  -9.5,  0.8, 0.8, 0.8,  -0.75,   0.20,  0.17,   0.12,  140 ],
+    /* mid layer */
+    [ -16.5,-11.5,  -4.5,  1.4, 1.4, 1.4,   0.65,   0.18,  0.20,   0.13,  280 ],
+    [  -8.5,-12.2,  -3.0,  2.2, 2.2, 2.2,   0.38,   0.12,  0.22,   0.14,  480 ],
+    [  -2.0,-12.5,  -2.0,  3.2, 3.2, 3.2,   0.10,   0.05,  0.25,   0.12,  820 ],
+    [   5.5,-12.8,  -3.5,  2.0, 2.0, 2.0,  -0.28,   0.10,  0.21,   0.13,  420 ],
+    [  13.0,-11.8,  -4.0,  1.5, 1.5, 1.5,  -0.60,   0.16,  0.20,   0.14,  300 ],
+    [  20.0,-12.5,  -5.0,  1.1, 1.1, 1.1,  -0.82,   0.20,  0.18,   0.13,  210 ],
+    /* near layer — bigger, close z */
+    [ -21.0, -9.5,   1.0,  1.6, 1.6, 1.6,   0.72,   0.14,  0.23,   0.15,  330 ],
+    [ -11.5,-11.5,   2.0,  2.8, 2.8, 2.8,   0.42,   0.10,  0.24,   0.14,  660 ],
+    [   8.5,-11.8,   2.5,  2.4, 2.4, 2.4,  -0.35,   0.12,  0.22,   0.13,  540 ],
+    [  18.5,-10.5,   1.5,  1.8, 1.8, 1.8,  -0.68,   0.15,  0.21,   0.14,  360 ],
+    /* extra fill */
+    [  -5.5,-13.0,   3.0,  1.2, 1.2, 1.2,   0.15,   0.08,  0.26,   0.15,  240 ],
+    [  11.5,-12.0,   2.0,  1.3, 1.3, 1.3,  -0.50,   0.12,  0.23,   0.14,  250 ]
+  ];
+  var NBOXES = BOX_DEFS.length;
+
+  var TOTAL_BN = 0;
+  for(var bi=0;bi<NBOXES;bi++) TOTAL_BN += BOX_DEFS[bi][10];
+
+  var blocal = new Float32Array(TOTAL_BN*3);
+  var bpos   = new Float32Array(TOTAL_BN*3);
+  var bcol   = new Float32Array(TOTAL_BN*3);
+  var bsz    = new Float32Array(TOTAL_BN);
+  var bact   = new Float32Array(TOTAL_BN);
+  var bph    = new Float32Array(TOTAL_BN);
+  var boxStart = new Int32Array(NBOXES);
+  var bRY = new Float32Array(NBOXES);
+  var bRX = new Float32Array(NBOXES);
+
+  function mkBoxSurface(w,h,d){
+    var hw=w/2,hh=h/2,hd=d/2;
+    var face=Math.floor(Math.random()*6);
+    var u=(Math.random()-0.5),v=(Math.random()-0.5);
+    var x,y,z;
+    if(face===0){x=hw;y=u*h;z=v*d;}
+    else if(face===1){x=-hw;y=u*h;z=v*d;}
+    else if(face===2){y=hh;x=u*w;z=v*d;}
+    else if(face===3){y=-hh;x=u*w;z=v*d;}
+    else if(face===4){z=hd;x=u*w;y=v*h;}
+    else{z=-hd;x=u*w;y=v*h;}
+    if(Math.random()<0.45){
+      var hw2=hw*0.998,hh2=hh*0.998,hd2=hd*0.998;
+      var edge=Math.floor(Math.random()*12),t2=(Math.random()-0.5);
+      if(edge<4){x=(edge%2===0?hw2:-hw2);z=(edge<2?hd2:-hd2);y=t2*h;}
+      else if(edge<8){y=(edge<6?hh2:-hh2);z=(edge%2===0?hd2:-hd2);x=t2*w;}
+      else{y=(edge<10?hh2:-hh2);x=(edge%2===0?hw2:-hw2);z=t2*d;}
+    }
+    return [x,y,z];
+  }
+
+  var offset=0;
+  for(var bi=0;bi<NBOXES;bi++){
+    boxStart[bi]=offset;
+    var def=BOX_DEFS[bi];
+    var cx=def[0],cy=def[1],cz=def[2],bw=def[3],bh=def[4],bd=def[5];
+    var dn=def[10];
+    for(var k=0;k<dn;k++){
+      var p=mkBoxSurface(bw,bh,bd);
+      var idx=offset+k;
+      blocal[idx*3]=p[0]; blocal[idx*3+1]=p[1]; blocal[idx*3+2]=p[2];
+      bpos[idx*3]=p[0]+cx; bpos[idx*3+1]=p[1]+cy; bpos[idx*3+2]=p[2]+cz;
+      bcol[idx*3]=0.15; bcol[idx*3+1]=0.16; bcol[idx*3+2]=0.22;
+      bsz[idx]=0.42+Math.random()*0.48;
+      bph[idx]=Math.random()*Math.PI*2;
+    }
+    offset+=dn;
+  }
+
+  var bgeo = new THREE.BufferGeometry();
+  bgeo.setAttribute('position',new THREE.BufferAttribute(bpos,3));
+  bgeo.setAttribute('aColor',  new THREE.BufferAttribute(bcol,3));
+  bgeo.setAttribute('aSize',   new THREE.BufferAttribute(bsz,1));
+
+  var bmat = new THREE.ShaderMaterial({
+    uniforms:{uDPR:{value:renderer.getPixelRatio()}},
+    vertexShader:'attribute vec3 aColor;attribute float aSize;varying vec3 vCol;varying float vA;uniform float uDPR;void main(){vCol=aColor;vec4 mv=modelViewMatrix*vec4(position,1.0);float d=-mv.z;vA=smoothstep(55.0,1.0,d);gl_PointSize=aSize*uDPR*(110.0/max(d,0.1));gl_Position=projectionMatrix*mv;}',
+    fragmentShader:'varying vec3 vCol;varying float vA;void main(){vec2 uv=gl_PointCoord-0.5;float r=length(uv);if(r>0.5)discard;float s=smoothstep(0.5,0.14,r);gl_FragColor=vec4(vCol,s*vA*0.94);}',
+    transparent:true,depthWrite:false,depthTest:false,blending:THREE.AdditiveBlending
+  });
+
+  var boxDots = new THREE.Points(bgeo, bmat);
+  scene.add(boxDots);
+
+  /* invisible hit-meshes */
+  var boxHitMeshes = [];
+  for(var bi=0;bi<NBOXES;bi++){
+    var def=BOX_DEFS[bi];
+    var hm=new THREE.Mesh(new THREE.BoxGeometry(def[3],def[4],def[5]),new THREE.MeshBasicMaterial({visible:false}));
+    hm.position.set(def[0],def[1],def[2]);
+    scene.add(hm);
+    boxHitMeshes.push(hm);
+  }
+
+  /* mist particles rising from lit boxes */
+  var MIST_PER_BOX=80, totalMist=NBOXES*MIST_PER_BOX;
+  var mistPos=new Float32Array(totalMist*3), mistCol=new Float32Array(totalMist*3);
+  var mistSz=new Float32Array(totalMist), mistLife=new Float32Array(totalMist);
+  var mistVx=new Float32Array(totalMist), mistVy=new Float32Array(totalMist), mistVz=new Float32Array(totalMist);
+  var mistPh=new Float32Array(totalMist);
+  var boxOpenAmt=new Float32Array(NBOXES);
+  for(var mi=0;mi<totalMist;mi++){mistPos[mi*3]=9999;mistLife[mi]=0;mistPh[mi]=Math.random()*Math.PI*2;}
+
+  /* ── Ground glow: soft radial glow per lit box, fades to transparent → no floor line ── */
+  var glowMat = new THREE.ShaderMaterial({
+    uniforms:{ uBoxPos:{value:[]}, uBoxAct:{value:[]}, uCount:{value:0} },
+    vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
+    fragmentShader:[
+      'precision highp float;',
+      'varying vec2 vUv;',
+      'uniform vec3 uBoxPos[10];',
+      'uniform float uBoxAct[10];',
+      'uniform int uCount;',
+      'void main(){',
+      '  vec2 p=(vUv-0.5)*vec2(60.0,20.0);',  /* plane spans wide but short */
+      '  float glow=0.0;',
+      '  for(int i=0;i<10;i++){',
+      '    if(i>=uCount) break;',
+      '    vec2 bp=uBoxPos[i].xz;',
+      '    float d=length(p-bp);',
+      '    glow+=uBoxAct[i]*exp(-d*d*0.08);',
+      '  }',
+      '  glow=clamp(glow,0.0,1.0);',
+      /* fade out at edges so there's no visible floor boundary */
+      '  float edgeFade=smoothstep(0.5,0.0,abs(vUv.x-0.5))*smoothstep(0.5,0.1,vUv.y);',
+      '  vec3 col=mix(vec3(0.05,0.15,0.5),vec3(0.3,0.6,1.0),glow)*glow*edgeFade;',
+      '  gl_FragColor=vec4(col,glow*edgeFade*0.35);',
+      '}'
+    ].join('\n'),
+    transparent:true, depthWrite:false, blending:THREE.AdditiveBlending, side:THREE.DoubleSide
+  });
+  var glowPlane = new THREE.Mesh(new THREE.PlaneGeometry(1,1), glowMat);
+  glowPlane.rotation.x = -Math.PI/2;
+  glowPlane.position.y = -13.2;
+  glowPlane.scale.set(60, 20, 1);
+  scene.add(glowPlane);
+
+
+  var mistGeo=new THREE.BufferGeometry();
+  mistGeo.setAttribute('position',new THREE.BufferAttribute(mistPos,3));
+  mistGeo.setAttribute('aColor',new THREE.BufferAttribute(mistCol,3));
+  mistGeo.setAttribute('aSize',new THREE.BufferAttribute(mistSz,1));
+  var mistMat=new THREE.ShaderMaterial({
+    uniforms:{uDPR:{value:renderer.getPixelRatio()}},
+    vertexShader:'attribute vec3 aColor;attribute float aSize;varying vec3 vCol;varying float vA;uniform float uDPR;void main(){vCol=aColor;vec4 mv=modelViewMatrix*vec4(position,1.0);float d=-mv.z;vA=smoothstep(55.0,1.0,d);gl_PointSize=aSize*uDPR*(140.0/max(d,0.1));gl_Position=projectionMatrix*mv;}',
+    fragmentShader:'varying vec3 vCol;varying float vA;void main(){vec2 uv=gl_PointCoord-0.5;if(length(uv)>0.5)discard;float s=smoothstep(0.5,0.0,length(uv))*0.6;gl_FragColor=vec4(vCol,s*vA);}',
+    transparent:true,depthWrite:false,depthTest:false,blending:THREE.AdditiveBlending
+  });
+  scene.add(new THREE.Points(mistGeo,mistMat));
+
+      /* Color constants */
+  var DIM_BOX = new THREE.Color(0.38,0.42,0.50);
+  var LIT_BOX = new THREE.Color(0.18,0.48,1.00);
+  var HOT_BOX = new THREE.Color(0.60,0.85,1.00);
+  var tmpBC   = new THREE.Color();
+
+
+  /* stubs */
+  var boxMat={opacity:0,metalness:0,color:{setHex:function(){},lerp:function(){}}};
+  var wireMat={opacity:0,color:{setHex:function(){},lerp:function(){}}};
+  var nodeGroup={children:[]};
+
+  /* ── Sand floor: dense flat particle layer at y≈-14, mouse-reactive ── */
+  var SAND_N = 28000;
+  var sandPos  = new Float32Array(SAND_N*3);
+  var sandOrig = new Float32Array(SAND_N*3);
+  var sandCol  = new Float32Array(SAND_N*3);
+  var sandSz   = new Float32Array(SAND_N);
+  var sandVx   = new Float32Array(SAND_N);
+  var sandVz   = new Float32Array(SAND_N);
+  var sandPh   = new Float32Array(SAND_N);
+
+  for(var si=0;si<SAND_N;si++){
+    /* z controls depth: negative = far, positive = near camera */
+    var sz = (Math.random()-0.5)*28;
+    var depthT = (sz + 14) / 28;   /* 0=far, 1=near */
+    /* uniform X distribution across full width — no bias */
+    var sx = (Math.random()-0.5) * 88;
+    /* y: near particles sit slightly higher (perspective) */
+    var sy = -13.5 + depthT*1.2 + (Math.random()-0.5)*0.6;
+
+    sandOrig[si*3]=sandPos[si*3]=sx;
+    sandOrig[si*3+1]=sandPos[si*3+1]=sy;
+    sandOrig[si*3+2]=sandPos[si*3+2]=sz;
+
+    /* near = brighter + whiter, far = dimmer + bluer */
+    var bright = 0.50 + depthT*0.40 + Math.random()*0.15;
+    sandCol[si*3  ]=bright;
+    sandCol[si*3+1]=bright;
+    sandCol[si*3+2]=bright;
+
+    /* near = bigger, far = tiny */
+    sandSz[si] = 0.55 + depthT*0.80 + Math.random()*0.45;
+    sandPh[si] = Math.random()*Math.PI*2;
+  }
+
+  var sandGeo = new THREE.BufferGeometry();
+  sandGeo.setAttribute('position', new THREE.BufferAttribute(sandPos,3));
+  sandGeo.setAttribute('aColor',   new THREE.BufferAttribute(sandCol,3));
+  sandGeo.setAttribute('aSize',    new THREE.BufferAttribute(sandSz,1));
+
+  var sandMat = new THREE.ShaderMaterial({
+    uniforms:{uDPR:{value:renderer.getPixelRatio()}},
+    vertexShader:[
+      'attribute vec3 aColor;attribute float aSize;',
+      'varying vec3 vCol;varying float vA;uniform float uDPR;',
+      'void main(){',
+      '  vCol=aColor;',
+      '  vec4 mv=modelViewMatrix*vec4(position,1.0);',
+      '  float d=-mv.z;',
+      '  vA=smoothstep(55.0,1.0,d);',
+      '  gl_PointSize=aSize*uDPR*(120.0/max(d,0.1));',
+      '  gl_Position=projectionMatrix*mv;',
+      '}'
+    ].join('\n'),
+    fragmentShader:[
+      'varying vec3 vCol;varying float vA;',
+      'void main(){',
+      '  vec2 uv=gl_PointCoord-0.5;',
+      '  float r=length(uv);',
+      '  if(r>0.5)discard;',
+      '  float s=smoothstep(0.5,0.1,r);',
+      '  gl_FragColor=vec4(vCol,s*vA);',
+      '}'
+    ].join('\n'),
+    transparent:true,depthWrite:false,depthTest:false,
+    blending:THREE.AdditiveBlending
+  });
+  var sandPoints = new THREE.Points(sandGeo, sandMat);
+  scene.add(sandPoints);
+
+  /* ── WebGL beam: exact port of LightRays.jsx using native WebGL ──
+     Separate <canvas> sits below Three.js canvas (z-index:1).
+     Three.js canvas has alpha:true so beam shows through.          */
+  var bCvs = document.createElement('canvas');
+  bCvs.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none;';
+  container.parentElement.insertBefore(bCvs, container);
+
+  var bgl = bCvs.getContext('webgl', {alpha:false, premultipliedAlpha:false, antialias:false});
+  bgl.enable(bgl.BLEND);
+  bgl.blendFunc(bgl.ONE, bgl.ONE);
+
+  /* vertex: full-screen triangle (ogl Triangle pattern) */
+  var bVS = 'attribute vec2 position;varying vec2 vUv;void main(){vUv=position*0.5+0.5;gl_Position=vec4(position,0.0,1.0);}';
+
+  /* fragment: exact copy of LightRays.jsx frag, origin top-center → dir [0,1] */
+  var bFS = [
+    'precision highp float;',
+    'uniform float iTime;uniform vec2 iResolution;uniform vec2 rayPos;uniform vec2 rayDir;',
+    'uniform vec3 raysColor;uniform float raysSpeed;uniform float lightSpread;',
+    'uniform float rayLength;uniform float pulsating;uniform float fadeDistance;',
+    'uniform vec2 mousePos;uniform float mouseInfluence;uniform float distortion;',
+    /* noise */
+    'float noise(vec2 st){return fract(sin(dot(st,vec2(12.9898,78.233)))*43758.5453);}',
+    /* rayStrength: verbatim from reference */
+    'float rayStrength(vec2 src,vec2 refDir,vec2 coord,float sA,float sB,float spd){',
+    '  vec2 s2c=coord-src;',
+    '  vec2 dn=normalize(s2c);',
+    '  float cosA=dot(dn,refDir);',
+    '  float da=cosA+distortion*sin(iTime*0.8+length(s2c)*0.01)*0.05;',
+    '  float spreadF=pow(max(da,0.0),1.0/max(lightSpread,0.001));',
+    '  float dist=length(s2c);',
+    '  float maxD=iResolution.x*rayLength;',
+    '  float lenF=clamp((maxD-dist)/maxD,0.0,1.0);',
+    '  float fadeF=clamp((iResolution.x*fadeDistance-dist)/(iResolution.x*fadeDistance),0.5,1.0);',
+    '  float pulse=pulsating>0.5?(0.8+0.2*sin(iTime*spd*3.0)):1.0;',
+    '  float base=clamp((0.50+0.07*sin(da*sA+iTime*spd))+(0.34+0.07*cos(-da*sB+iTime*spd)),0.0,1.0);',
+    '  return base*lenF*fadeF*spreadF*pulse;',
+    '}',
+    'void main(){',
+    /* CSS coords: Y flipped so rayPos top-center works with dir [0,1] */
+    '  vec2 coord=vec2(gl_FragCoord.x,iResolution.y-gl_FragCoord.y);',
+    '  vec2 finalDir=rayDir;',
+    '  if(mouseInfluence>0.0){',
+    '    vec2 mScreen=mousePos*iResolution.xy;',
+    '    vec2 mDir=normalize(mScreen-rayPos);',
+    '    finalDir=normalize(mix(rayDir,mDir,mouseInfluence));',
+    '  }',
+    '  vec4 r1=vec4(1.0)*rayStrength(rayPos,finalDir,coord,36.2214,21.11349,1.5*raysSpeed);',
+    '  vec4 r2=vec4(1.0)*rayStrength(rayPos,finalDir,coord,22.3991,18.0234, 1.1*raysSpeed);',
+    '  vec4 col=r1*0.5+r2*0.4;',
+    /* brightness gradient: bright at top */
+    '  float brightness=1.0-(coord.y/iResolution.y);',
+    '  float rays=col.r;',
+    /* core: cool white; mid: blue; edge: deep indigo — layered color */
+    '  vec3 coreCol =vec3(0.85,0.92,1.00);',
+    '  vec3 midCol  =vec3(0.30,0.65,1.00);',
+    '  vec3 edgeCol =vec3(0.12,0.28,0.72);',
+    '  vec3 rayCol  =mix(edgeCol,mix(midCol,coreCol,rays),rays);',
+    '  rayCol*=brightness*(0.5+brightness*0.5);',
+    '  gl_FragColor=vec4(rayCol*rays,1.0);',
+    '}'
+  ].join('\n');
+
+  function mkShader(gl, src, type){
+    var s=gl.createShader(type); gl.shaderSource(s,src); gl.compileShader(s);
+    if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)) console.error('beam shader:',gl.getShaderInfoLog(s));
+    return s;
+  }
+  var bProg=bgl.createProgram();
+  bgl.attachShader(bProg,mkShader(bgl,bVS,bgl.VERTEX_SHADER));
+  bgl.attachShader(bProg,mkShader(bgl,bFS,bgl.FRAGMENT_SHADER));
+  bgl.linkProgram(bProg);
+  bgl.useProgram(bProg);
+
+  var bBuf=bgl.createBuffer();
+  bgl.bindBuffer(bgl.ARRAY_BUFFER,bBuf);
+  bgl.bufferData(bgl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),bgl.STATIC_DRAW);
+  var bPos=bgl.getAttribLocation(bProg,'position');
+  bgl.enableVertexAttribArray(bPos);
+  bgl.vertexAttribPointer(bPos,2,bgl.FLOAT,false,0,0);
+
+  var bU={
+    iTime:        bgl.getUniformLocation(bProg,'iTime'),
+    iRes:         bgl.getUniformLocation(bProg,'iResolution'),
+    rayPos:       bgl.getUniformLocation(bProg,'rayPos'),
+    rayDir:       bgl.getUniformLocation(bProg,'rayDir'),
+    raysColor:    bgl.getUniformLocation(bProg,'raysColor'),
+    raysSpeed:    bgl.getUniformLocation(bProg,'raysSpeed'),
+    lightSpread:  bgl.getUniformLocation(bProg,'lightSpread'),
+    rayLength:    bgl.getUniformLocation(bProg,'rayLength'),
+    pulsating:    bgl.getUniformLocation(bProg,'pulsating'),
+    fadeDistance: bgl.getUniformLocation(bProg,'fadeDistance'),
+    mousePos:     bgl.getUniformLocation(bProg,'mousePos'),
+    mouseInfluence:bgl.getUniformLocation(bProg,'mouseInfluence'),
+    distortion:   bgl.getUniformLocation(bProg,'distortion')
+  };
+  bgl.uniform3f(bU.raysColor,    0.75, 0.92, 1.0);
+  bgl.uniform1f(bU.raysSpeed,    0.22);
+  bgl.uniform1f(bU.lightSpread,  0.28);
+  bgl.uniform1f(bU.rayLength,    2.2);
+  bgl.uniform1f(bU.pulsating,    0.0);
+  bgl.uniform1f(bU.fadeDistance, 1.1);
+  bgl.uniform1f(bU.mouseInfluence, 0.12);
+  bgl.uniform1f(bU.distortion,   0.0);
+  bgl.uniform2f(bU.rayDir,       0.0, 1.0);
+
+  var beamMx=0, beamMy=0;
+
+  function resizeBeam(){
+    var dpr=Math.min(window.devicePixelRatio,2);
+    bCvs.width  = container.clientWidth*dpr;
+    bCvs.height = container.clientHeight*dpr;
+    bCvs.style.width  = container.clientWidth+'px';
+    bCvs.style.height = container.clientHeight+'px';
+    bgl.viewport(0,0,bCvs.width,bCvs.height);
+  }
+  resizeBeam();
+  new ResizeObserver(resizeBeam).observe(container);
+
+  function drawBeam(elapsed){
+    var bw=bCvs.width, bh=bCvs.height;
+    bgl.clearColor(0,0,0,1);
+    bgl.clear(bgl.COLOR_BUFFER_BIT);
+    bgl.useProgram(bProg);
+    bgl.bindBuffer(bgl.ARRAY_BUFFER,bBuf);
+    bgl.vertexAttribPointer(bPos,2,bgl.FLOAT,false,0,0);
+    bgl.uniform1f(bU.iTime, elapsed);
+    bgl.uniform2f(bU.iRes,  bw, bh);
+    /* anchor: top-center in CSS coords = (w*0.5, -0.2*h) */
+    bgl.uniform2f(bU.rayPos, bw*(0.5+beamMx*0.18), -bh*0.2);
+    /* mousePos in 0..1 CSS space */
+    bgl.uniform2f(bU.mousePos, (beamMx+1)*0.5, (-beamMy+1)*0.5);
+    bgl.drawArrays(bgl.TRIANGLES,0,3);
+  }
+
+  /* stubs */
+  var beamScene={},beamCamera={};
+  var beamUniforms={};
+  var coneMat={uniforms:{uInt:{value:0}}};
+  var coneMesh={position:{x:0,set:function(){}},rotation:{z:0}};
+
+  /* ── Raycaster ── */
+  var raycaster = new THREE.Raycaster();
+  var boxActivation = 0;
+  var spotDir = new THREE.Vector3();
+  var tmpCol  = new THREE.Color();
+  var DIM = new THREE.Color(0.32,0.32,0.35);   /* dim white outside beam */
+  var BLU = new THREE.Color(0.75,0.85,1.00);   /* white-blue mid-beam */
+  var HOT = new THREE.Color(1.00,1.00,1.00);   /* pure white core */
+  var plane = new THREE.Plane(new THREE.Vector3(0,0,1),-8);
+
+  /* ── Loop ── */
+  var clock = new THREE.Clock();
+  var running = false;
+  var breathPhase = 0;
+  var titleCX = 0, titleCY = 3.5;
+  /* ── Camera intro: push in from far ── */
+  var introProgress = 0;   /* 0→1 over ~2.5s */
+  var INTRO_Z_START = 46, INTRO_Z_END = 26;
+  camera.position.set(0, 4, INTRO_Z_START);
+
+  function tick(){
+    if(!running) return;
+    requestAnimationFrame(tick);
+    var t = clock.getElapsedTime();
+
+    mx+=(tmx-mx)*0.055; my+=(tmy-my)*0.055;
+
+    /* ── Camera intro push-in ── */
+    if(introProgress < 1){
+      introProgress = Math.min(1, introProgress + 0.006);
+      var ease = 1 - Math.pow(1-introProgress, 3); /* ease-out cubic */
+      camera.position.z = INTRO_Z_START + (INTRO_Z_END - INTRO_Z_START)*ease;
+    }
+
+    /* ── Camera parallax + scroll push ── */
+    var camTargetY = 3.5 + scrollRatio*5.0;
+    var camTargetZ = (INTRO_Z_END) - scrollRatio*4.0;
+    camera.position.x += (mx*1.2 - camera.position.x)*0.028;
+    camera.position.y += (my*0.5 + camTargetY - camera.position.y)*0.028;
+    if(introProgress >= 1)
+      camera.position.z += (camTargetZ - camera.position.z)*0.04;
+    camera.lookAt(mx*0.4, -2+my*0.3 - scrollRatio*3, 0);
+
+    raycaster.setFromCamera({x:mx,y:my},camera);
+    var hit = new THREE.Vector3();
+    raycaster.ray.intersectPlane(plane,hit);
+    spot.target.position.lerp(hit,0.07);
+    spot.target.updateMatrixWorld();
+    spot.position.x += (mx*12-spot.position.x)*0.04;
+    spot.intensity = 7.0;
+
+    coneMesh.position.x = spot.position.x;
+    coneMesh.rotation.z = -mx*0.22;
+    coneMat.uniforms.uInt.value = 1.4;
+
+    raycaster.setFromCamera({x:mx,y:my},camera);
+    var boxActivation = 0; /* keep stub for cone logic */
+
+    /* Spotlight direction */
+    var bSpotDir = new THREE.Vector3().subVectors(spot.target.position, spot.position).normalize();
+    var bSP = spot.position;
+    var bTana = Math.tan(spot.angle * 0.85);
+
+    /* ── Animate all 10 boxes ── */
+    for(var bi=0;bi<NBOXES;bi++){
+      var def=BOX_DEFS[bi];
+      var cx=def[0],cy=def[1],cz=def[2],bw=def[3],bh=def[4],bd=def[5];
+      var baseRY=def[6],baseRX=def[7],spY=def[8],spX=def[9];
+
+      /* per-box float: near boxes bob more, far boxes subtle */
+      var cz2=def[2];
+      var depthT=Math.max(0,Math.min(1,(cz2+10)/12)); /* 0=far, 1=near */
+      var bobAmp   = 0.20 + depthT*0.55 + (bi%3)*0.08;
+      var bobSpeed = 0.22 + bi*0.03;
+      var bobY     = Math.sin(t*bobSpeed + bi*1.7) * bobAmp;
+      var floatCY  = cy + bobY;
+
+      bRY[bi]=baseRY+Math.sin(t*spY+bi*1.3)*0.18+mx*0.08;
+      bRX[bi]=baseRX+Math.sin(t*spX+bi*0.9)*0.10-my*0.05 + Math.sin(t*0.22+bi*0.9)*0.04;
+      boxHitMeshes[bi].rotation.set(bRX[bi],bRY[bi],0);
+      boxHitMeshes[bi].position.y = floatCY;
+
+      var cY2=Math.cos(bRY[bi]),sY2=Math.sin(bRY[bi]);
+      var cX2=Math.cos(bRX[bi]),sX2=Math.sin(bRX[bi]);
+      var bStart=boxStart[bi], bEnd=(bi<NBOXES-1?boxStart[bi+1]:TOTAL_BN);
+
+      /* box average activation for mist */
+      var boxAvg=0;
+      for(var k=bStart;k<bEnd;k++) boxAvg+=bact[k];
+      boxAvg/=(bEnd-bStart);
+      boxOpenAmt[bi]+=(boxAvg-boxOpenAmt[bi])*(boxAvg>boxOpenAmt[bi]?0.035:0.018);
+      var open=boxOpenAmt[bi];
+
+      for(var k=bStart;k<bEnd;k++){
+        var k3=k*3;
+        var lx=blocal[k3],ly=blocal[k3+1],lz=blocal[k3+2];
+        var rx1=cY2*lx+sY2*lz, rz1=-sY2*lx+cY2*lz;
+        var wx=rx1+cx, wy=cX2*ly-sX2*rz1+floatCY, wz=sX2*ly+cX2*rz1+cz;
+        bpos[k3]=wx; bpos[k3+1]=wy; bpos[k3+2]=wz;
+
+        var ddx=wx-bSP.x,ddy=wy-bSP.y,ddz=wz-bSP.z;
+        var proj2=ddx*bSpotDir.x+ddy*bSpotDir.y+ddz*bSpotDir.z;
+        var inCone2=0;
+        if(proj2>0){
+          var ppx=ddx-proj2*bSpotDir.x,ppy=ddy-proj2*bSpotDir.y,ppz=ddz-proj2*bSpotDir.z;
+          var perp2=Math.sqrt(ppx*ppx+ppy*ppy+ppz*ppz);
+          var cr2=proj2*bTana;
+          if(perp2<cr2) inCone2=Math.pow(1-perp2/cr2,2.0)*Math.exp(-proj2*0.014);
+        }
+        var tgtB=Math.min(inCone2*3.0,1);
+        bact[k]+=(tgtB-bact[k])*(tgtB>bact[k]?0.22:0.05);
+        var ba=bact[k];
+
+        bph[k]+=0.005;
+        var baseSz=0.72+(k%3)*0.18;
+        bsz[k]=baseSz+ba*(2.0+Math.sin(bph[k]*2.0+k*0.7)*0.4);
+
+        if(ba<0.5) tmpBC.copy(DIM_BOX).lerp(LIT_BOX,ba/0.5);
+        else       tmpBC.copy(LIT_BOX).lerp(HOT_BOX,(ba-0.5)/0.5);
+
+        bcol[k3]=tmpBC.r; bcol[k3+1]=tmpBC.g; bcol[k3+2]=tmpBC.b;
+      }
+
+      /* mist from this box */
+      var spawnRate=open*0.10;
+      for(var mp=0;mp<MIST_PER_BOX;mp++){
+        var midx=bi*MIST_PER_BOX+mp, m3=midx*3;
+        if(mistLife[midx]>0){
+          mistLife[midx]-=0.006*(1+open*0.5);
+          var lf=Math.max(mistLife[midx],0), age=1-lf;
+          mistVy[midx]+=0.0012; mistVx[midx]+=Math.sin(t*0.8+mistPh[midx])*0.0008; mistVz[midx]+=Math.cos(t*0.6+mistPh[midx]*1.3)*0.0006;
+          mistVx[midx]*=0.98; mistVy[midx]*=0.985; mistVz[midx]*=0.98;
+          mistPos[m3]+=mistVx[midx]; mistPos[m3+1]+=mistVy[midx]; mistPos[m3+2]+=mistVz[midx];
+          var br=lf*(0.4+open*0.6);
+          mistCol[m3]=br*0.55; mistCol[m3+1]=br*0.78; mistCol[m3+2]=br*1.0;
+          mistSz[midx]=(0.5+age*1.8)*lf*(0.6+open*0.8);
+        } else if(Math.random()<spawnRate){
+          mistPos[m3]=def[0]+(Math.random()-0.5)*def[3]*0.85;
+          mistPos[m3+1]=def[1]+def[4]/2+0.1;
+          mistPos[m3+2]=def[2]+(Math.random()-0.5)*def[5]*0.85;
+          mistVx[midx]=(Math.random()-0.5)*0.012; mistVy[midx]=0.015+Math.random()*0.025; mistVz[midx]=(Math.random()-0.5)*0.012;
+          mistLife[midx]=0.7+Math.random()*0.5; mistPh[midx]=Math.random()*Math.PI*2;
+        } else {
+          mistPos[m3]=9999; mistCol[m3]=0; mistCol[m3+1]=0; mistCol[m3+2]=0; mistSz[midx]=0;
+        }
+      }
+    }
+
+    bgeo.attributes.position.needsUpdate=true;
+    bgeo.attributes.aColor.needsUpdate=true;
+    bgeo.attributes.aSize.needsUpdate=true;
+    mistGeo.attributes.position.needsUpdate=true;
+    mistGeo.attributes.aColor.needsUpdate=true;
+    mistGeo.attributes.aSize.needsUpdate=true;
+
+    spotDir.subVectors(spot.target.position,spot.position).normalize();
+    var sp = spot.position;
+    var tana = Math.tan(spot.angle*0.82);
+
+    for(var i=0;i<N;i++){
+      var i3=i*3;
+      var px=pos[i3],py=pos[i3+1],pz=pos[i3+2];
+      var dx=px-sp.x, dy=py-sp.y, dz=pz-sp.z;
+      var proj = dx*spotDir.x+dy*spotDir.y+dz*spotDir.z;
+      var inCone=0;
+      if(proj>0){
+        var perpX=dx-proj*spotDir.x,perpY=dy-proj*spotDir.y,perpZ=dz-proj*spotDir.z;
+        var perp=Math.sqrt(perpX*perpX+perpY*perpY+perpZ*perpZ);
+        var cr=proj*tana;
+        if(perp<cr) inCone=Math.pow(1-perp/cr,1.5)*Math.exp(-proj*0.025);
+      }
+      var tgt=Math.min(inCone*2.8,1);
+      act[i]+=(tgt-act[i])*(tgt>act[i]?0.20:0.05);
+      var a=act[i];
+      var lv=layer[i];
+
+      /* ── phase drift: fg moves faster ── */
+      /* drift slower near top (high y), faster near bottom */
+      var yFrac = Math.max(0, Math.min(1, (pos[i3+1]+10)/28));  /* 0=bottom, 1=top */
+      var phSpeed = 0.002 + lv*0.002 + (1-yFrac)*0.003;
+      ph[i]+=phSpeed;
+      var driftScale = 0.003 + lv*0.002;
+      var bx=Math.sin(ph[i]*0.7+i*0.51)*driftScale*(0.6+yFrac*0.4);
+      var by=Math.cos(ph[i]*0.5+i*0.31)*driftScale*0.6;
+      var bz=Math.sin(ph[i]*0.9+i*0.73)*driftScale*0.4;
+
+      /* ── beam flow: particles inside beam drift downward ── */
+      if(a>0.05){
+        var flowSpeed = a * 0.022 * (1+lv*0.5);
+        vel[i3+1] -= flowSpeed;   /* downward */
+        /* slight outward spread as they flow */
+        vel[i3]   += (pos[i3]>0?1:-1)*a*0.006;
+      }
+
+      /* ── mouse repulsion ── */
+      var mwx = mx * 14, mwy = my * 9;
+      var rx = pos[i3]-mwx, ry = pos[i3+1]-mwy;
+      var rdist = Math.sqrt(rx*rx+ry*ry);
+      var repelR = 3.5 + lv*0.8;
+      if(rdist < repelR && rdist > 0.01){
+        var repelF = (1-rdist/repelR) * 0.055 * (1+lv*0.4);
+        vel[i3]   += (rx/rdist)*repelF;
+        vel[i3+1] += (ry/rdist)*repelF;
+      }
+
+      /* ── particle gather toward title during intro, disperse after ── */
+      var gatherStrength = Math.max(0, 1 - introProgress*2.2);  /* fades as camera arrives */
+      if(gatherStrength > 0){
+        var gx = pos[i3]-titleCX, gy = pos[i3+1]-titleCY;
+        var gd = Math.sqrt(gx*gx+gy*gy);
+        if(gd > 0.5){
+          var gF = gatherStrength * 0.025 * (lv===2?1.4:lv===1?1.0:0.6);
+          vel[i3]   -= (gx/gd)*gF;
+          vel[i3+1] -= (gy/gd)*gF;
+        }
+      }
+
+
+
+      /* ── breathing: subtle size/brightness pulse ── */
+      var breathScale = 0.92 + 0.08*Math.sin(breathPhase + i*0.0008);
+
+      /* ── scroll lift: particles float upward as user scrolls ── */
+      if(scrollRatio>0){
+        vel[i3+1] += scrollRatio * 0.018 * (0.5+lv*0.5);
+        vel[i3]   += (Math.random()-0.5)*scrollRatio*0.008;
+      }
+
+      /* ── integrate velocity → position, spring back to origin ── */
+      vel[i3  ]*=0.88; vel[i3+1]*=0.88; vel[i3+2]*=0.88;
+      pos[i3  ] += vel[i3  ] + bx;
+      pos[i3+1] += vel[i3+1] + by;
+      pos[i3+2] += vel[i3+2] + bz;
+
+      /* spring back: particles follow beam X position */
+      var spring = 0.009 + lv*0.004;
+      /* beamMx is the smoothed beam X (-1..1). Map to world units.
+         Particles lean toward beam centre but keep their relative spread */
+      var beamWorldX = beamMx * 14;
+      var relX = orig[i3];
+      var targetX = beamWorldX * 0.6 + relX * 0.75;
+      /* X tracking matches beam smooth speed (0.06) */
+      pos[i3  ] += (targetX - pos[i3  ]) * 0.06;
+      pos[i3+1] += (orig[i3+1]       - pos[i3+1])*spring;
+      pos[i3+2] += (orig[i3+2]       - pos[i3+2])*spring*0.5;
+
+      /* ── colour: layer affects base brightness ── */
+      tmpCol.copy(DIM).lerp(a>0.5?HOT:BLU,a);
+      /* bg particles are dimmer, fg brighter */
+      /* white: all channels equal, layer just controls base floor brightness */
+      var lum = tmpCol.r;   /* r=g=b for white, HOT=1.0, DIM=0.12 */
+      var layerFloor = 0.14 + lv*0.10;
+      var finalLum = Math.max(lum, layerFloor);
+      col[i3  ]=finalLum; col[i3+1]=finalLum; col[i3+2]=finalLum;
+
+      /* ── size: fg bigger, also grows under repulsion ── */
+      var rx2=pos[i3]-mx*14, ry2=pos[i3+1]-my*9;
+      var nearMouse=Math.max(0,1-Math.sqrt(rx2*rx2+ry2*ry2)/3.5);
+      var baseS = lv===0?0.28:lv===1?0.48:0.72;
+      /* particles near top are smaller */
+      var topFade = Math.max(0.4, 1.0 - Math.max(0,(pos[i3+1]-8)/12));
+      sz[i] = (baseS + a*0.7 + nearMouse*(0.5+lv*0.3)) * breathScale * topFade;
+    }
+
+    geo.attributes.position.needsUpdate=true;
+    geo.attributes.aColor.needsUpdate=true;
+    geo.attributes.aSize.needsUpdate=true;
+
+
+
+    /* ── Breathing pulse ── */
+    breathPhase += 0.008;
+    var breathVal = 0.82 + 0.18*Math.sin(breathPhase);
+
+    /* ── Beam pulsing: modulate raysSpeed uniform with breath ── */
+    bgl.useProgram(bProg);
+    bgl.uniform1f(bU.raysSpeed, 0.8 + 0.4*Math.sin(breathPhase*0.7));
+
+
+    /* ── Ground glow: update per-box positions + activations ── */
+    var gbPositions = [], gbActs = [];
+    for(var bi2=0;bi2<NBOXES;bi2++){
+      var gd=BOX_DEFS[bi2];
+      var avgAct2=0, gCount=boxStart[bi2]<TOTAL_BN?boxStart[bi2]:0;
+      var gEnd2=bi2<NBOXES-1?boxStart[bi2+1]:TOTAL_BN;
+      for(var k2=boxStart[bi2];k2<gEnd2;k2++) avgAct2+=bact[k2];
+      avgAct2/=(gEnd2-boxStart[bi2]);
+      gbPositions.push(new THREE.Vector3(gd[0],gd[1],gd[2]));
+      gbActs.push(avgAct2);
+    }
+    glowMat.uniforms.uBoxPos.value = gbPositions;
+    glowMat.uniforms.uBoxAct.value = gbActs;
+    glowMat.uniforms.uCount.value  = NBOXES;
+
+    /* ── Sand floor: mouse repulsion in XZ plane ── */
+    /* project mouse to world y=-14 plane — X only, Z fixed at scene centre */
+    var mSandX = mx * 44, mSandZ = 0;
+    for(var si=0;si<SAND_N;si++){
+      var s3=si*3;
+      sandPh[si]+=0.003;
+      /* gentle drift */
+      var dx2=sandPos[s3]-mSandX, dz2=sandPos[s3+2]-mSandZ;
+      var sd=Math.sqrt(dx2*dx2+dz2*dz2);
+      var repelR=7.0;
+      if(sd<repelR && sd>0.01){
+        var repF=(1-sd/repelR)*0.09;
+        sandVx[si]+=(dx2/sd)*repF;
+        sandVz[si]+=(dz2/sd)*repF;
+        /* colour boost near mouse */
+        var boost=(1-sd/repelR)*0.55;
+        sandCol[s3  ]=Math.min(sandCol[s3  ]+boost*0.3,0.55);
+        sandCol[s3+1]=Math.min(sandCol[s3+1]+boost*0.5,0.75);
+        sandCol[s3+2]=Math.min(sandCol[s3+2]+boost,1.0);
+      } else {
+        /* fade back to base colour */
+        /* depth-based base: near particles always brighter */
+        var depthT2=(sandOrig[s3+2]+14)/28;
+        var baseBr=(0.48+depthT2*0.38)+Math.sin(sandPh[si]*0.7+si*0.08)*0.03;
+        sandCol[s3  ]+=(baseBr-sandCol[s3  ])*0.04;
+        sandCol[s3+1]+=(baseBr-sandCol[s3+1])*0.04;
+        sandCol[s3+2]+=(baseBr-sandCol[s3+2])*0.04;
+      }
+      /* dampen velocity + spring back to origin */
+      sandVx[si]*=0.90; sandVz[si]*=0.90;
+      sandPos[s3  ]+=sandVx[si];
+      sandPos[s3+2]+=sandVz[si];
+      /* spring back XZ */
+      sandPos[s3  ]+=(sandOrig[s3  ]-sandPos[s3  ])*0.025;
+      sandPos[s3+2]+=(sandOrig[s3+2]-sandPos[s3+2])*0.025;
+      /* subtle Y twinkle */
+      sandPos[s3+1]=sandOrig[s3+1]+Math.sin(sandPh[si]+si*0.3)*0.06;
+    }
+    sandGeo.attributes.position.needsUpdate=true;
+    sandGeo.attributes.aColor.needsUpdate=true;
+
+    /* smooth beam mouse */
+    beamMx += (mx - beamMx) * 0.06;
+    beamMy += (my - beamMy) * 0.06;
+
+    /* draw beam first (opaque black bg), then Three.js on top (alpha:true) */
+    drawBeam(t);
+    renderer.render(scene, camera);
+  }
+
+  new IntersectionObserver(function(es){
+    if(es[0].isIntersecting){ running=true; tick(); }
+    else { running=false; }
+  },{threshold:0.01}).observe(container);
+
+  running=true; tick();
+})();
+
+
+
+function openAuth(m){switchTo(m);document.getElementById('authModal').classList.add('open');document.body.style.overflow='hidden';}
+function closeAuth(){document.getElementById('authModal').classList.remove('open');document.body.style.overflow='';}
+document.getElementById('authModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeAuth();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeAuth();});
+function switchTo(m){['loginPanel','registerPanel','forgotPanel'].forEach(id=>document.getElementById(id).style.display='none');document.getElementById(m+'Panel').style.display='block';}
+function switchLoginTab(t,btn){ /* sms=verification code, pwd=password */
+  document.querySelectorAll('.modal-tab').forEach(x=>x.classList.remove('on'));btn.classList.add('on');
+  document.getElementById('loginPwd').classList.toggle('on',t==='pwd');
+  document.getElementById('loginSms').classList.toggle('on',t==='sms');
+}
+function togglePw(id,btn){
+  const i=document.getElementById(id);const s=i.type==='password';i.type=s?'text':'password';
+  btn.querySelector('svg').innerHTML=s
+    ?'<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><line x1="1" y1="1" x2="23" y2="23" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>'
+    :'<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.6"/>';
+}
+function sendCode(id){
+  const b=document.getElementById(id);if(!b||b.disabled)return;
+  showToast('Code sent (demo: 000000)');
+  let s=60;b.disabled=true;b.textContent=s+'s';
+  const t=setInterval(()=>{s--;if(s<=0){clearInterval(t);b.disabled=false;b.textContent='Send code';}else b.textContent=s+'s';},1000);
+}
+function doLogin(){showToast('Signed in successfully');setTimeout(closeAuth,1400);}
+function doRegister(){if(!document.getElementById('regAgree').checked){showToast('Please agree to the terms first');return;}showToast('Account created — welcome!');setTimeout(()=>switchTo('login'),1600);}
+function doReset(){showToast('Password reset — please sign in');setTimeout(()=>switchTo('login'),1600);}
+function showToast(msg){
+  const w=document.getElementById('toastWrap');const t=document.createElement('div');
+  t.className='toast';t.textContent=msg;w.appendChild(t);
+  setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity .22s';setTimeout(()=>t.remove(),240);},2600);
+}
+// ── Annotation labels removed ──────────────────────────────
+
+// ── Feature card spotlight tracking ─────────────────────────
+document.querySelectorAll('.feat-card').forEach(card => {
+  card.addEventListener('mousemove', e => {
+    const r = card.getBoundingClientRect();
+    const x = ((e.clientX - r.left) / r.width  * 100).toFixed(1) + '%';
+    const y = ((e.clientY - r.top)  / r.height * 100).toFixed(1) + '%';
+    card.style.setProperty('--mx', x);
+    card.style.setProperty('--my', y);
+  });
+});
+
+// ── How-step stagger on scroll ──────────────────────────────
+const howObs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if(e.isIntersecting){
+      e.target.querySelectorAll('.how-step').forEach((s,i) => {
+        setTimeout(() => s.classList.add('visible'), i*120);
+        s.style.opacity='0'; s.style.transform='translateY(28px)';
+        s.style.transition=`opacity .7s ease ${i*0.12}s, transform .7s ease ${i*0.12}s`;
+      });
+      howObs.unobserve(e.target);
+    }
+  });
+}, {threshold:0.15});
+const howGrid = document.querySelector('.how-steps');
+if(howGrid) howObs.observe(howGrid);
+
+// ── Testimonial card stagger ────────────────────────────────
+const testiObs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if(e.isIntersecting){
+      e.target.querySelectorAll('.testi-card').forEach((c,i) => {
+        c.style.opacity='0'; c.style.transform='translateY(24px)';
+        c.style.transition=`opacity .6s ease ${i*0.08}s, transform .6s ease ${i*0.08}s, filter .6s ease ${i*0.08}s`;
+        setTimeout(() => { c.style.opacity='1'; c.style.transform='none'; }, i*80+50);
+      });
+      testiObs.unobserve(e.target);
+    }
+  });
+}, {threshold:0.1});
+const testiGrid = document.querySelector('.testi-grid');
+if(testiGrid) testiObs.observe(testiGrid);
+
+// ── Platform stats: animated underline on hover ─────────────
+document.querySelectorAll('.pnum-item').forEach(item => {
+  item.style.cursor = 'default';
+});
+
+// ── ElectricBorder — blue/white liquid lightning, full perimeter ──
+(function(){
+
+  function rnd(x){ return ((Math.sin(x*12.9898)*43758.5453)%1+1)%1; }
+
+  function noise2D(x,y){
+    var i=Math.floor(x), j=Math.floor(y), fx=x-i, fy=y-j;
+    var a=rnd(i+j*57), b=rnd(i+1+j*57), c=rnd(i+(j+1)*57), d=rnd(i+1+(j+1)*57);
+    var ux=fx*fx*(3-2*fx), uy=fy*fy*(3-2*fy);
+    return a*(1-ux)*(1-uy)+b*ux*(1-uy)+c*(1-ux)*uy+d*ux*uy;
+  }
+
+  function octavedNoise(x,octaves,lacunarity,gain,baseAmplitude,baseFrequency,time,seed,baseFlatness){
+    var y=0, amp=baseAmplitude, freq=baseFrequency;
+    for(var i=0;i<octaves;i++){
+      var a=(i===0)? amp*baseFlatness : amp;
+      y += a * noise2D(freq*x + seed*100, time*freq*0.3);
+      freq*=lacunarity; amp*=gain;
+    }
+    return y;
+  }
+
+  function corner(cx,cy,r,sa,al,p){
+    var a=sa+p*al; return{x:cx+r*Math.cos(a),y:cy+r*Math.sin(a)};
+  }
+
+  function getRoundedRectPoint(t,left,top,width,height,radius){
+    var sw=width-2*radius, sh=height-2*radius;
+    var ca=(Math.PI*radius)/2;
+    var total=2*sw+2*sh+4*ca;
+    var d=t*total, acc=0;
+    if(d<=acc+sw){var p=(d-acc)/sw;return{x:left+radius+p*sw,y:top};}acc+=sw;
+    if(d<=acc+ca){var p=(d-acc)/ca;return corner(left+width-radius,top+radius,radius,-Math.PI/2,Math.PI/2,p);}acc+=ca;
+    if(d<=acc+sh){var p=(d-acc)/sh;return{x:left+width,y:top+radius+p*sh};}acc+=sh;
+    if(d<=acc+ca){var p=(d-acc)/ca;return corner(left+width-radius,top+height-radius,radius,0,Math.PI/2,p);}acc+=ca;
+    if(d<=acc+sw){var p=(d-acc)/sw;return{x:left+width-radius-p*sw,y:top+height};}acc+=sw;
+    if(d<=acc+ca){var p=(d-acc)/ca;return corner(left+radius,top+height-radius,radius,Math.PI/2,Math.PI/2,p);}acc+=ca;
+    if(d<=acc+sh){var p=(d-acc)/sh;return{x:left,y:top+height-radius-p*sh};}acc+=sh;
+    var p=(d-acc)/ca;return corner(left+radius,top+radius,radius,Math.PI,Math.PI/2,p);
+  }
+
+  var SPEED=1, CHAOS=0.12, BRAD=20, OCT=10, LAC=1.6, GAIN=0.7, FREQ=10, FLAT=0, DISP=28, OFF=48;
+
+  document.querySelectorAll('.eb-step').forEach(function(step){
+    var canvas=step.querySelector('.eb-canvas');
+    if(!canvas) return;
+    var ctx=canvas.getContext('2d');
+    var timeRef=0, lastT=0, W=0, H=0;
+    var dpr=Math.min(window.devicePixelRatio||1,2);
+
+    function resize(){
+      var rect=step.getBoundingClientRect();
+      if(!rect.width||!rect.height) return;
+      W=rect.width+OFF*2; H=rect.height+OFF*2;
+      canvas.width=Math.round(W*dpr);
+      canvas.height=Math.round(H*dpr);
+      canvas.style.width=W+'px';
+      canvas.style.height=H+'px';
+    }
+    resize();
+    window.addEventListener('load',resize);
+    new ResizeObserver(resize).observe(step);
+
+    function buildPath(N,left,top,bw,bh,r,xSeed,ySeed){
+      ctx.beginPath();
+      for(var i=0;i<=N;i++){
+        var prog=i/N;
+        var pt=getRoundedRectPoint(prog,left,top,bw,bh,r);
+        var xn=octavedNoise(prog*8,OCT,LAC,GAIN,CHAOS,FREQ,timeRef,xSeed,FLAT)*DISP;
+        var yn=octavedNoise(prog*8,OCT,LAC,GAIN,CHAOS,FREQ,timeRef,ySeed,FLAT)*DISP;
+        if(i===0) ctx.moveTo(pt.x+xn,pt.y+yn);
+        else      ctx.lineTo(pt.x+xn,pt.y+yn);
+      }
+      ctx.closePath();
+    }
+
+    function draw(now){
+      requestAnimationFrame(draw);
+      if(!W||!H){resize();return;}
+      var dt=(now-lastT)/1000; lastT=now;
+      timeRef+=dt*SPEED;
+      ctx.setTransform(dpr,0,0,dpr,0,0);
+      ctx.clearRect(0,0,W,H);
+
+      var left=OFF, top=OFF, bw=W-OFF*2, bh=H-OFF*2;
+      var maxR=Math.min(bw,bh)/2, r=Math.min(BRAD,maxR);
+      var N=Math.floor((2*(bw+bh)+2*Math.PI*r)/2);
+
+      /* Layer 1: outer glow */
+      ctx.save();
+      ctx.lineWidth=5; ctx.lineCap='round'; ctx.lineJoin='round';
+      ctx.strokeStyle='rgba(0,90,230,0.18)';
+      ctx.shadowColor='rgba(0,120,255,0.85)'; ctx.shadowBlur=22;
+      buildPath(N,left,top,bw,bh,r,0,1);
+      ctx.stroke(); ctx.restore();
+
+      /* Layer 2: mid */
+      ctx.save();
+      ctx.lineWidth=2; ctx.lineCap='round'; ctx.lineJoin='round';
+      ctx.strokeStyle='rgba(50,150,255,0.6)';
+      ctx.shadowColor='rgba(80,170,255,1)'; ctx.shadowBlur=10;
+      buildPath(N,left,top,bw,bh,r,0,1);
+      ctx.stroke(); ctx.restore();
+
+      /* Layer 3: bright core */
+      ctx.save();
+      ctx.lineWidth=0.8; ctx.lineCap='round'; ctx.lineJoin='round';
+      ctx.strokeStyle='rgba(200,230,255,0.95)';
+      ctx.shadowColor='rgba(220,240,255,1)'; ctx.shadowBlur=4;
+      buildPath(N,left,top,bw,bh,r,0,1);
+      ctx.stroke(); ctx.restore();
+    }
+    requestAnimationFrame(draw);
+  });
+
+})();
+
+// ── Feat-card: mouse-follow spotlight glow ─────────────────────
+document.querySelectorAll('.feat-card').forEach(card => {
+  card.addEventListener('mousemove', e => {
+    const r = card.getBoundingClientRect();
+    const x = ((e.clientX - r.left) / r.width  * 100).toFixed(1);
+    const y = ((e.clientY - r.top)  / r.height * 100).toFixed(1);
+    card.style.setProperty('--mx', x + '%');
+    card.style.setProperty('--my', y + '%');
+  });
+});
+
+// ── How-step: number counter on scroll ──────────────────────────
+(function(){
+  const steps = document.querySelectorAll('.how-step-n');
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if(e.isIntersecting) e.target.style.opacity = '1';
+    });
+  }, {threshold: 0.4});
+  steps.forEach(s => { s.style.opacity='0'; s.style.transition='opacity .5s .2s'; obs.observe(s); });
+})();
+
+// ── Testi-card: stagger text opacity ────────────────────────────
+document.querySelectorAll('.testi-text').forEach((el, i) => {
+  el.style.position = 'relative';
+  el.style.zIndex = '1';
+});
+
+// ── Scroll progress bar ──────────────────────────────────────
+const scrollBar = document.getElementById('scrollBar');
+// ── Hero entrance animation ─────────────────────────────────
+window.addEventListener('load', () => {
+  setTimeout(() => document.getElementById('home').classList.add('hero-ready'), 80);
+});
+
+window.addEventListener('scroll', () => {
+  const pct = window.scrollY / (document.documentElement.scrollHeight - window.innerHeight) * 100;
+  scrollBar.style.width = pct + '%';
+  document.getElementById('nav').style.borderBottomColor = window.scrollY > 10 ? 'rgba(255,255,255,.1)' : 'rgba(255,255,255,.06)';
+}, {passive:true});
+
+// ── Typewriter ───────────────────────────────────────────────
+(function(){
+  const el = document.getElementById('typeTarget');
+  if (!el) return;
+  const lines = ['Everything your\nteam needs.', 'Nothing\nit doesn\'t.'];
+  let li = 0, ci = 0, deleting = false, paused = false;
+
+  function tick() {
+    const line = lines[li];
+    if (paused) { paused = false; setTimeout(tick, deleting ? 400 : 1800); return; }
+    if (!deleting) {
+      if (ci <= line.length) {
+        el.innerHTML = line.slice(0, ci).replace(/\n/g, '<br>');
+        ci++;
+        setTimeout(tick, ci === 1 ? 300 : 42 + Math.random() * 22);
+      } else {
+        paused = true; deleting = true; setTimeout(tick, 1800);
+      }
+    } else {
+      if (ci > 0) {
+        ci--;
+        el.innerHTML = line.slice(0, ci).replace(/\n/g, '<br>');
+        setTimeout(tick, 28);
+      } else {
+        deleting = false; li = (li + 1) % lines.length;
+        paused = true; setTimeout(tick, 320);
+      }
+    }
+  }
+  // start when platform section visible
+  const platObs = new IntersectionObserver(entries => {
+    if (entries[0].isIntersecting) { platObs.disconnect(); tick(); }
+  }, {threshold:.2});
+  const plat = document.getElementById('platform');
+  if (plat) platObs.observe(plat); else tick();
+})();
+
+// ── Count-up numbers ─────────────────────────────────────────
+(function(){
+  const items = document.querySelectorAll('.pnum-item');
+  if (!items.length) return;
+  const targets = [62, 3, 1, 100];
+  const suffixes = ['+', '', 'min', '%'];
+  const prefixes = ['', '', '< ', ''];
+  const done = new Set();
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (!e.isIntersecting) return;
+      const i = [...items].indexOf(e.target);
+      if (done.has(i)) return;
+      done.add(i);
+      const valEl = e.target.querySelector('.pnum-val');
+      if (!valEl) return;
+      const target = targets[i];
+      const dur = 900, start = performance.now();
+      function frame(now) {
+        const p = Math.min((now - start) / dur, 1);
+        const ease = 1 - Math.pow(1 - p, 3);
+        const v = Math.round(ease * target);
+        // rebuild innerHTML preserving spans
+        const plusSpan = valEl.querySelector('.pnum-plus');
+        const unitSpan = valEl.querySelector('.pnum-unit');
+        const extra = plusSpan ? plusSpan.outerHTML : unitSpan ? unitSpan.outerHTML : '';
+        valEl.innerHTML = prefixes[i] + v + extra;
+        if (p < 1) requestAnimationFrame(frame);
+        else valEl.classList.add('counted');
+      }
+      requestAnimationFrame(frame);
+    });
+  }, {threshold:.4});
+  items.forEach(el => obs.observe(el));
+})();
+
+// ── Stagger grids ────────────────────────────────────────────
+const staggerObs = new IntersectionObserver(e => {
+  e.forEach(x => { if (x.isIntersecting) x.target.classList.add('visible'); });
+}, {threshold:.1});
+document.querySelectorAll('.features-grid,.testi-grid,.how-steps').forEach(el => staggerObs.observe(el));
+
+// ── Reveal ───────────────────────────────────────────────────
+const obs = new IntersectionObserver(e => {
+  e.forEach(x => { if (x.isIntersecting) x.target.classList.add('visible'); });
+}, {threshold:.08});
+document.querySelectorAll('.reveal').forEach(el => obs.observe(el));
+
+// ── Magnetic buttons ─────────────────────────────────────────
+document.querySelectorAll('.btn-hero-primary,.btn-hero-ghost').forEach(btn => {
+  btn.addEventListener('mousemove', e => {
+    const r = btn.getBoundingClientRect();
+    const dx = (e.clientX - r.left - r.width/2) * .18;
+    const dy = (e.clientY - r.top - r.height/2) * .18;
+    btn.style.transform = `translate(${dx}px,${dy}px) scale(1.03)`;
+  });
+  btn.addEventListener('mouseleave', () => {
+    btn.style.transform = '';
+    btn.style.transition = 'transform .35s var(--ease)';
+    setTimeout(() => btn.style.transition = '', 350);
+  });
+});
+</script>
+</body>
+</html>
