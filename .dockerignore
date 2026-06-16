@@ -1,0 +1,23 @@
+# 依赖与构建产物（在容器内重新安装/生成，避免把宿主机的二进制文件带进镜像）
+node_modules
+.next
+out
+build
+
+# 版本控制与本地工具
+.git
+.gitignore
+.claude
+.playwright-mcp
+
+# 环境变量与密钥（运行时注入，禁止打进镜像层）
+.env
+.env.*
+
+# 杂项
+*.md
+.DS_Store
+*.pem
+npm-debug.log*
+Dockerfile
+.dockerignore
