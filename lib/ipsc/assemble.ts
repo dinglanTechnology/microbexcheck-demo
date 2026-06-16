@@ -7,8 +7,9 @@ export type SourceKey = (typeof SOURCES)[number];
 
 // fieldPath -> source -> value
 export type ValueMap = Map<string, Partial<Record<SourceKey, unknown>>>;
-// fieldPath -> coords
-export type CoordMap = Map<string, unknown>;
+// fieldPath -> field-level meta (coords + confirmed + 验收人 accepted value)
+export type FieldMetaInfo = { coords: unknown; confirmed: boolean; accepted: unknown };
+export type MetaMap = Map<string, FieldMetaInfo>;
 
 /** Derive the section id from a fieldPath rid. */
 export function sectionOf(fieldPath: string): string {
@@ -22,11 +23,14 @@ function sources(fieldPath: string, values: ValueMap) {
   return Object.fromEntries(SOURCES.map((s) => [s, { value: v[s] ?? null }]));
 }
 
-/** Build the `{coords, sources}` node for a single field. */
-export function fieldNode(fieldPath: string, values: ValueMap, coords: CoordMap) {
+/** Build the `{coords, confirmed, accepted, sources}` node for a single field. */
+export function fieldNode(fieldPath: string, values: ValueMap, metas: MetaMap) {
+  const m = metas.get(fieldPath);
   return {
     fieldPath,
-    coords: coords.get(fieldPath) ?? null,
+    coords: m?.coords ?? null,
+    confirmed: m?.confirmed ?? false,
+    accepted: m?.accepted ?? null, // 验收人终值；与三来源无关
     sources: sources(fieldPath, values),
   };
 }
@@ -41,7 +45,7 @@ function indicesFor(prefix: RegExp, values: ValueMap): number[] {
 }
 
 /** Build the full sections array for a paper. */
-export function buildSections(values: ValueMap, coords: CoordMap) {
+export function buildSections(values: ValueMap, metas: MetaMap) {
   return SECTIONS.map((sec) => {
     if (sec.type === "object" && sec.fields) {
       return {
@@ -52,7 +56,7 @@ export function buildSections(values: ValueMap, coords: CoordMap) {
           label: f.label,
           type: f.type,
           ...(f.opts ? { opts: f.opts } : {}),
-          ...fieldNode(`${sec.id}.${f.key}`, values, coords),
+          ...fieldNode(`${sec.id}.${f.key}`, values, metas),
         })),
       };
     }
@@ -63,14 +67,14 @@ export function buildSections(values: ValueMap, coords: CoordMap) {
           label: f.label,
           type: f.type,
           ...(f.opts ? { opts: f.opts } : {}),
-          ...fieldNode(`cond.${index}.${f.key}`, values, coords),
+          ...fieldNode(`cond.${index}.${f.key}`, values, metas),
         })),
       }));
       return { id: sec.id, title: sec.title, type: sec.type, itemLabel: sec.itemLabel, items };
     }
     // evidence
     const items = indicesFor(/^ev\.(\d+)$/, values).map((index) =>
-      fieldNode(`ev.${index}`, values, coords),
+      fieldNode(`ev.${index}`, values, metas),
     );
     return { id: sec.id, title: sec.title, type: sec.type, items };
   });

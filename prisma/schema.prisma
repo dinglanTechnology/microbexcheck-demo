@@ -34,7 +34,7 @@ model Paper {
   updatedAt   DateTime @updatedAt
 
   fields FieldValue[]
-  coords FieldCoord[]
+  metas  FieldMeta[]
 
   @@map("papers")
 }
@@ -57,17 +57,19 @@ model FieldValue {
   @@map("field_values")
 }
 
-// 字段坐标：字段级（与来源无关，挂在主字段上）。一行 = (文献 × 字段)。
-model FieldCoord {
+// 字段级元数据（与来源无关，挂在主字段上）：坐标 + 已确认状态。一行 = (文献 × 字段)。
+model FieldMeta {
   id        Int      @id @default(autoincrement())
   paperId   Int
   fieldPath String   @db.VarChar(255) // 行标识 rid
-  coords    Json // PDF 框选坐标 [{page,x,y,w,h}, ...]
+  coords    Json? // PDF 框选坐标 [{page,x,y,w,h}, ...]
+  confirmed Boolean  @default(false) // 验收态点「确认」后置 true（已提交）
+  accepted  Json? // 验收人填写/采纳的终值（独立于 AI/杨/王 三来源）
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   paper Paper @relation(fields: [paperId], references: [id], onDelete: Cascade)
 
   @@unique([paperId, fieldPath])
-  @@map("field_coords")
+  @@map("field_metas")
 }
