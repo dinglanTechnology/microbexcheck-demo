@@ -354,10 +354,10 @@ select.form-input{cursor:pointer}
   <span class="tb-title" id="tbTitle">文献审核</span>
   <div class="tb-sp"></div>
   <div class="tb-links">
-    <button class="tb-link-btn pdf" onclick="showT('打开原文 PDF','tinf')">
+    <button class="tb-link-btn pdf" onclick="downloadPdf()" data-tip="下载原文 PDF">
       <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="1" width="10" height="12" rx="1.5"/><path d="M4 5h6M4 7.5h6M4 10h4" stroke-linecap="round"/></svg>原文 PDF
     </button>
-    <button class="tb-link-btn url" onclick="showT('打开原文链接','tinf')">
+    <button class="tb-link-btn url" onclick="openPdfTab()" data-tip="新标签页在线预览">
       <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5.5 8.5l3-3M8 5l1.5-1.5a2.12 2.12 0 013 3L11 8M6 9l-1.5 1.5a2.12 2.12 0 01-3-3L3 6" stroke-linecap="round"/></svg>原文链接
     </button>
   </div>
@@ -1557,6 +1557,7 @@ async function loadPaper(id) {
     pageMode = paperMode(id);   // 按该文献的状态/历史操作决定模式（开始审核 / 提交验收 / 已完成）
     PDF_URL = (d.paper && d.paper.pdfUrl) || null;
     pageMode = modeFromStatus((d.paper && d.paper.status) || 'pending'); // 按后端状态还原模式
+    PDF_NAME = (d.paper && (d.paper.title || d.paper.fileKey)) || ('paper-' + id);
     resetState();
     applyDetail(d);
     buildState();           // 内部会调用下面被覆写的 buildReviewSources
@@ -1666,13 +1667,36 @@ const PDF_W = 560;                 // 渲染宽度，与 .pdf-page CSS 宽度一
 var selectedOverlay = null;
 var pdfObserver = null;            // 懒加载页面的 IntersectionObserver
 var PDF_URL = null;                // 当前文献的 OSS 直链（优先直连，失败回退代理）
+var PDF_NAME = null;               // 当前文献名（用作下载文件名）
+
+// 「原文 PDF」：下载 PDF。走同源代理 /api/papers/:id/pdf + download 属性强制下载
+// （OSS 直链跨域，download 属性会被忽略，无法强制下载）。
+function downloadPdf() {
+  if (CURRENT_ID == null || !PDF_URL) { showT('该文献暂无 PDF', 'twrn'); return; }
+  const safe = String(PDF_NAME || ('paper-' + CURRENT_ID)).replace(/[\\/:*?"<>|]+/g, '_').slice(0, 120);
+  const a = document.createElement('a');
+  a.href = '/api/papers/' + CURRENT_ID + '/pdf';
+  a.download = /\.pdf$/i.test(safe) ? safe : safe + '.pdf';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+// 「原文链接」：新标签页在线预览 PDF。优先 OSS 直链（最快），无则回退同源代理。
+function openPdfTab() {
+  if (CURRENT_ID == null || !PDF_URL) { showT('该文献暂无 PDF', 'twrn'); return; }
+  window.open(PDF_URL || ('/api/papers/' + CURRENT_ID + '/pdf'), '_blank', 'noopener,noreferrer');
+}
 
 // 覆写 buildDoc：中间面板渲染真实 PDF（来自同源代理 /api/papers/:id/pdf）
 buildDoc = function () { renderPdf(CURRENT_ID); };
 
 async function renderPdf(id) {
   const area = document.getElementById('pdfArea');
-  area.style.flexDirection = 'column'; area.style.alignItems = 'center'; area.style.gap = '20px';
+  // 注意：.pdf-area 的 CSS 是 justify-content:center（为单页横向居中设计）。
+  // 改成纵向多页滚动后，center 会把溢出内容垂直居中，导致首页顶部被顶到可视区上方且无法滚到 →
+  // 必须覆盖为 flex-start，让内容从顶部开始正常滚动。
+  area.style.flexDirection = 'column'; area.style.alignItems = 'center'; area.style.justifyContent = 'flex-start'; area.style.gap = '20px';
   if (id == null) { area.innerHTML = '<div style="padding:48px;color:var(--t3);font-size:13px">选择左侧文献以查看 PDF</div>'; return; }
   area.innerHTML = '<div style="padding:48px;color:var(--t3);font-size:13px">PDF 加载中…</div>';
   if (!window.pdfjsLib) { area.innerHTML = '<div style="padding:48px;color:var(--t3)">PDF 组件未加载</div>'; return; }
@@ -1776,10 +1800,16 @@ onLocAddClick = function (ev, rid) {
 onLocCycle = function (ev, rid) {
   ev.stopPropagation();
   if (pickingLoc) { cancelPickLoc(); return; }
-  if (!getLocsFor(rid).length) return;
+  const locs = getLocsFor(rid);
+  if (!locs.length) return;
+  // 同一字段重复点击 → 在它的多个框选项之间循环聚焦；切换到别的字段 → 从第一个开始
+  if (activeField && activeField.rid === rid) activeField.idx = (activeField.idx + 1) % locs.length;
+  else activeField = { rid, idx: 0 };
   document.querySelectorAll('#pdfArea .loc-show-current').forEach(el => el.classList.remove('loc-show-current'));
-  const o = document.querySelector('#pdfArea .loc-overlay[data-rid="' + CSS.escape(rid) + '"]');
+  const overlays = Array.from(document.querySelectorAll('#pdfArea .loc-overlay[data-rid="' + CSS.escape(rid) + '"]'));
+  const o = overlays.find(el => Number(el.dataset.idx) === activeField.idx) || overlays[activeField.idx];
   if (o) { o.classList.add('loc-show-current'); o.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+  renderBody(); // 刷新定位按钮的激活态
 };
 onPdfMouseDown = function (e) {
   if (!pickingLoc) return;
