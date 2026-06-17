@@ -17,7 +17,15 @@ function poolConfig() {
   };
 }
 
-const adapter = new PrismaMariaDb(poolConfig());
+// Single place that knows which database driver/adapter we use. The runtime
+// singleton below and the import script (scripts/import-ipsc.ts) both build
+// their client through here, so switching databases (e.g. MySQL → Postgres)
+// is a one-spot change: swap the adapter here + the `provider` in
+// schema.prisma. Pure function — opens no connection until the client is used.
+export function createPrismaClient(): PrismaClient {
+  const adapter = new PrismaMariaDb(poolConfig());
+  return new PrismaClient({ adapter });
+}
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
@@ -25,7 +33,7 @@ const globalForPrisma = globalThis as unknown as {
 
 // Reuse a single client across hot-reloads in dev to avoid exhausting the
 // connection pool.
-export const prisma = globalForPrisma.prisma ?? new PrismaClient({ adapter });
+export const prisma = globalForPrisma.prisma ?? createPrismaClient();
 
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;

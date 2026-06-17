@@ -1527,6 +1527,10 @@ function applyDetail(d) {
   Object.keys(RAW).forEach(k => delete RAW[k]);
   Object.assign(RAW, newRaw);
 }
+// 后端状态机 → 前端 pageMode：pending=待进行 / active=进行中 / done=已完成
+function modeFromStatus(s) {
+  return s === 'active' ? 'review' : s === 'done' ? 'submitted' : 'rev-pending';
+}
 async function loadPaper(id) {
   try {
     const r = await fetch('/api/papers/' + id);
@@ -1534,6 +1538,7 @@ async function loadPaper(id) {
     const d = await r.json();
     CURRENT_ID = id;
     PDF_URL = (d.paper && d.paper.pdfUrl) || null;
+    pageMode = modeFromStatus((d.paper && d.paper.status) || 'pending'); // 按后端状态还原模式
     resetState();
     applyDetail(d);
     buildState();           // 内部会调用下面被覆写的 buildReviewSources
@@ -1599,6 +1604,43 @@ confirmField = function (rid) {
     body: JSON.stringify({ fieldPath: ridToPath(rid), accepted: accepted, confirmed: true })
   }).then(r => { if (!r.ok) throw new Error('http ' + r.status); })
     .catch(() => showT('保存失败，请重试', 'twrn'));
+};
+
+// 覆写：开始审核 / 提交验收 —— 状态机持久化到后端，并实时刷新左侧徽标。
+// pending(待进行) → active(进行中) → done(已完成)；失败则不改本地状态。
+function setLocalStatus(id, st) { const f = FILES.find(x => x.id === id); if (f) f.st = st; }
+function patchStatus(id, status) {
+  return fetch('/api/papers/' + id, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status })
+  }).then(r => { if (!r.ok) throw new Error('http ' + r.status); return r.json(); });
+}
+confirmStartReview = function () {
+  closeM('bd-start-review');
+  if (CURRENT_ID == null) return;
+  patchStatus(CURRENT_ID, 'active').then(() => {
+    pageMode = 'review'; updateModeUI();
+    setLocalStatus(CURRENT_ID, 'active'); renderSidebar();
+    showT('审核已开始，计时中…', 'tinf');
+  }).catch(() => showT('开始审核失败，请重试', 'twrn'));
+};
+confirmSubmitReview = function () {
+  closeM('bd-submit-review');
+  if (CURRENT_ID == null) return;
+  patchStatus(CURRENT_ID, 'done').then(() => {
+    pageMode = 'submitted'; updateModeUI();
+    setLocalStatus(CURRENT_ID, 'done'); renderSidebar();
+    showT('已提交验收，任务已完成', 'tok');
+  }).catch(() => showT('提交失败，请重试', 'twrn'));
+};
+// 撤回：已完成 → 退回进行中（同样持久化，避免刷新后又被打回只读）。
+withdrawReview = function () {
+  if (CURRENT_ID == null) return;
+  patchStatus(CURRENT_ID, 'active').then(() => {
+    pageMode = 'review'; updateModeUI();
+    setLocalStatus(CURRENT_ID, 'active'); renderSidebar();
+    showT('已撤回，可继续修改', 'tinf');
+  }).catch(() => showT('撤回失败，请重试', 'twrn'));
 };
 
 /* ── 真实 PDF（PDF.js）+ 基于 PDF 的坐标框选 ─────────────────── */

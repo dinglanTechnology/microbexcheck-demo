@@ -11,28 +11,19 @@
 import "dotenv/config";
 import fs from "node:fs";
 import path from "node:path";
-import { PrismaMariaDb } from "@prisma/adapter-mariadb";
-import { PrismaClient, Prisma } from "../app/generated/prisma/client";
+import { Prisma } from "../app/generated/prisma/client";
+// Reuse the runtime's client factory so a database switch is a one-spot change
+// (lib/prisma.ts) instead of being duplicated here. This script only uses
+// portable Prisma ORM ops (upsert / deleteMany / createMany, no raw SQL), so
+// it works unchanged against MySQL / Postgres / SQLite once the adapter and
+// schema `provider` are swapped.
+import { createPrismaClient } from "../lib/prisma";
 import { buildAiRecords, perturb, type FieldRecord } from "../lib/ipsc/transform";
 import { ossConfigured, uploadFile } from "../lib/oss";
 
 const ROOT = process.cwd();
 const JSON_DIR = path.join(ROOT, "temp", "condition_response(前20篇)");
 const PDF_DIR = path.join(ROOT, "temp", "pdf", "文档一");
-const STATUSES = ["active", "pending", "done"] as const;
-
-function prismaClient() {
-  const u = new URL(process.env.DATABASE_URL as string);
-  const adapter = new PrismaMariaDb({
-    host: u.hostname,
-    port: u.port ? Number(u.port) : 3306,
-    user: decodeURIComponent(u.username),
-    password: decodeURIComponent(u.password),
-    database: decodeURIComponent(u.pathname.replace(/^\//, "")),
-    connectionLimit: 5,
-  });
-  return new PrismaClient({ adapter });
-}
 
 // Normalize a filename stem so JSON ↔ PDF names match despite encoding diffs
 // (e.g. "(19)" vs "_19_", trailing "_", extra fbclid "_aem_..." suffix).
@@ -79,7 +70,7 @@ async function main() {
   const ossOn = ossConfigured();
   console.log(`Found ${files.length} JSON files, ${pdfIndex.length} PDFs. OSS=${ossOn ? "on" : "OFF (skip upload)"}`);
 
-  const prisma = prismaClient();
+  const prisma = createPrismaClient();
   let totalFields = 0;
   let uploaded = 0;
   let pdfMissing = 0;
@@ -113,7 +104,8 @@ async function main() {
         pmid: paper.pmid,
         url: paper.url,
         pdfFileName: pdfFile,
-        status: STATUSES[i % STATUSES.length],
+        // 新导入文献一律「待进行」(pending)，由验收人逐篇推进状态机。
+        status: "pending",
         ...(pdfUrl ? { pdfUrl } : {}),
       };
 
