@@ -346,6 +346,8 @@ select.form-input{cursor:pointer}
 /* 定位列按钮贴着左栏边缘，居中 tooltip 左半会被裁掉 → 改为与按钮左边对齐、向右延伸 */
 .ann-loc [data-tip]::after{left:0;transform:translateX(0) translateY(4px)}
 .ann-loc [data-tip]:hover::after{transform:translateX(0) translateY(0)}
+/* 顶栏按钮在页面最上方，tooltip 默认显示在上方会被视口顶部裁切 → 放到按钮下方 */
+.tb-links [data-tip]::after{top:calc(100% + 6px);bottom:auto}
 </style>
 </head>
 <body>
