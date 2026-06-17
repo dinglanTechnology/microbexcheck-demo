@@ -202,10 +202,10 @@ function hash(s: string): number {
 const isEmpty = (v: unknown) =>
   v == null || v === "" || (Array.isArray(v) && v.length === 0);
 
-const SUFFIX: Record<string, string> = { YANG: "（杨校对）", WANG: "（王复核）" };
-
-// Mutate a populated value into a plausibly different one.
-function mutate(rec: FieldRecord, source: string): unknown {
+// Mutate a populated value into a plausibly different one. Only enumerable
+// fields (radio / score / evidence confidence) get a genuinely different value;
+// free text is left untouched — no "（杨校对）/（王复核）" annotation suffixes.
+function mutate(rec: FieldRecord): unknown {
   const v = rec.value;
   if (rec.type === "radio" && rec.opts?.length) {
     const cur = rec.opts.indexOf(String(v));
@@ -221,7 +221,7 @@ function mutate(rec: FieldRecord, source: string): unknown {
     const cur = conf.indexOf(String(o.confidence));
     return { ...o, confidence: conf[(Math.max(0, cur) + 1) % conf.length] };
   }
-  return `${v}${SUFFIX[source] ?? ""}`;
+  return v; // free text: keep the value as-is
 }
 
 // Returns a copy of `records` with ~`rate` of populated fields changed,
@@ -235,6 +235,6 @@ export function perturb(
   return records.map((rec) => {
     if (isEmpty(rec.value)) return rec;
     const roll = hash(`${fileKey}|${source}|${rec.fieldPath}`);
-    return roll < rate ? { ...rec, value: mutate(rec, source) } : rec;
+    return roll < rate ? { ...rec, value: mutate(rec) } : rec;
   });
 }
