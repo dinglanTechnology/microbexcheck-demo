@@ -343,6 +343,9 @@ select.form-input{cursor:pointer}
 [data-tip]{position:relative}
 [data-tip]::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%) translateY(4px);background:#0F172A;color:#fff;font-size:11.5px;font-weight:500;line-height:1.4;padding:5px 9px;border-radius:6px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s ease,transform .15s ease;z-index:9000;box-shadow:0 4px 12px rgba(0,0,0,0.25)}
 [data-tip]:hover::after{opacity:1;transform:translateX(-50%) translateY(0)}
+/* 定位列按钮贴着左栏边缘，居中 tooltip 左半会被裁掉 → 改为与按钮左边对齐、向右延伸 */
+.ann-loc [data-tip]::after{left:0;transform:translateX(0) translateY(4px)}
+.ann-loc [data-tip]:hover::after{transform:translateX(0) translateY(0)}
 </style>
 </head>
 <body>
@@ -681,15 +684,7 @@ const STATE = {
 let REVIEW_SOURCES = {}; // rid -> [{from,val}]
 let ROW_INDEX = {};      // rid -> rowDef (rebuilt each render)
 
-let pageMode='rev-pending'; // rev-pending | review | submitted | locked | done
-// 审核模式按「每篇文献」管理：默认从文献状态(st)派生，用户操作(开始/提交/撤回)覆盖并持久化。
-let PAPER_MODE = {};
-try { PAPER_MODE = JSON.parse(localStorage.getItem('mc_paper_mode') || '{}') || {}; } catch (e) { PAPER_MODE = {}; }
-function deriveMode(st){ return st==='active' ? 'review' : st==='done' ? 'done' : 'rev-pending'; }
-function modeToStatus(m){ return (m==='review'||m==='submitted') ? 'active' : (m==='locked'||m==='done') ? 'done' : 'pending'; }
-function paperMode(id){ const f=FILES.find(x=>x.id===id); return PAPER_MODE[id] || deriveMode(f ? f.st : 'pending'); }
-function setPaperMode(id,m){ if(id==null) return; PAPER_MODE[id]=m; try{ localStorage.setItem('mc_paper_mode', JSON.stringify(PAPER_MODE)); }catch(e){} }
-function effStatus(f){ const m=PAPER_MODE[f.id]; return m ? modeToStatus(m) : f.st; }
+let pageMode='rev-pending'; // rev-pending | review | submitted | done（以后端 status 为准，见 modeFromStatus / patchStatus）
 let leftOpen=false, stFilter='all';
 
 const ST_DOT={active:'var(--or)',done:'var(--gn)',pending:'var(--t4)'};
@@ -830,9 +825,9 @@ function setStFilter(st,el){stFilter=st;document.querySelectorAll('.st-chip').fo
 function filterFiles(){renderSidebar();}
 function renderSidebar(){
   const q=(document.getElementById('fileSearch')?.value||'').toLowerCase();
-  const list=FILES.filter(f=>(stFilter==='all'||effStatus(f)===stFilter)&&(!q||f.name.toLowerCase().includes(q)||f.pid.toLowerCase().includes(q)));
-  document.getElementById('leftIcons').innerHTML='<div class="left-icons-scroll">'+FILES.map((f,i)=>`<div class="left-icon${f.id===1?' on':''}" onclick="selectFile(${f.id})" title="${escAttr(f.name)}"><div class="left-icon-av" style="background:${COLORS[i%COLORS.length]}">${esc(f.pid.replace(/[^0-9]/g,'').slice(-2)||f.name.slice(0,2))}</div><span class="sdot" style="background:${ST_DOT[effStatus(f)]}"></span></div>`).join('')+'</div>';
-  document.getElementById('fileList').innerHTML=!list.length?'<div style="padding:24px 12px;text-align:center;font-size:12.5px;color:var(--t4)">无匹配结果</div>':list.map(f=>`<div class="file-item${f.id===1?' on':''}" onclick="selectFile(${f.id})"><span class="file-dot" style="background:${ST_DOT[effStatus(f)]}"></span><span class="file-name" title="${escAttr(f.name)}">${esc(f.name)}</span></div>`).join('');
+  const list=FILES.filter(f=>(stFilter==='all'||f.st===stFilter)&&(!q||f.name.toLowerCase().includes(q)||f.pid.toLowerCase().includes(q)));
+  document.getElementById('leftIcons').innerHTML='<div class="left-icons-scroll">'+FILES.map((f,i)=>`<div class="left-icon${f.id===1?' on':''}" onclick="selectFile(${f.id})" title="${escAttr(f.name)}"><div class="left-icon-av" style="background:${COLORS[i%COLORS.length]}">${esc(f.pid.replace(/[^0-9]/g,'').slice(-2)||f.name.slice(0,2))}</div><span class="sdot" style="background:${ST_DOT[f.st]}"></span></div>`).join('')+'</div>';
+  document.getElementById('fileList').innerHTML=!list.length?'<div style="padding:24px 12px;text-align:center;font-size:12.5px;color:var(--t4)">无匹配结果</div>':list.map(f=>`<div class="file-item${f.id===1?' on':''}" onclick="selectFile(${f.id})"><span class="file-dot" style="background:${ST_DOT[f.st]}"></span><span class="file-name" title="${escAttr(f.name)}">${esc(f.name)}</span></div>`).join('');
 }
 function selectFile(id){showT('切换至文献 #'+id,'tinf');}
 
@@ -884,9 +879,7 @@ function updateModeUI(){
 }
 function setDisp(id,v){const el=document.getElementById(id);if(el)el.style.display=v;}
 function startReview(){document.getElementById('bd-start-review').classList.add('open');}
-function confirmStartReview(){closeM('bd-start-review');pageMode='review';setPaperMode(CURRENT_ID,'review');renderSidebar();updateModeUI();showT('审核已开始，计时中…','tinf');}
-function confirmSubmitReview(){closeM('bd-submit-review');pageMode='submitted';setPaperMode(CURRENT_ID,'submitted');renderSidebar();updateModeUI();showT('审核结果已提交，等待验收','tok');}
-function withdrawReview(){pageMode='review';setPaperMode(CURRENT_ID,'review');renderSidebar();updateModeUI();showT('已撤回，可继续修改','tinf');}
+// confirmStartReview / confirmSubmitReview / withdrawReview 由下方「状态机持久化到后端」的覆写版本实现
 
 /* ══════════════════════════════════════════════════════════════
    RENDER BODY
@@ -1554,7 +1547,6 @@ async function loadPaper(id) {
     const d = await r.json();
     CURRENT_ID = id;
     try { localStorage.setItem('mc_current_paper', String(id)); } catch (e) {}
-    pageMode = paperMode(id);   // 按该文献的状态/历史操作决定模式（开始审核 / 提交验收 / 已完成）
     PDF_URL = (d.paper && d.paper.pdfUrl) || null;
     pageMode = modeFromStatus((d.paper && d.paper.status) || 'pending'); // 按后端状态还原模式
     PDF_NAME = (d.paper && (d.paper.title || d.paper.fileKey)) || ('paper-' + id);
