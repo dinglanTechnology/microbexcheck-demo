@@ -1115,10 +1115,7 @@ function saveEv(){
     const e=STATE.evs.find(x=>x.uid===_evEditUid);
     if(e){
       e.claim=claim;e.sentence=sentence;e.section=section;e.figure=figure;e.note=note;e.confidence=confidence;
-      // 当前用户的修改并入来源列表
-      let mine=(e.sources||[]).find(s=>s.from===CUR_USER);
-      if(mine){Object.assign(mine,{claim,sentence,section,confidence});}
-      else{(e.sources=e.sources||[]).push({from:CUR_USER,claim,sentence,section,confidence});}
+      // 验收人的修改只改主数据，不写入 sources（AI/杨玉凤/李然 三来源保持不变）
       STATE.confirmed['ev.'+e.uid]=false;
     }
     showT('证据已更新','tok');
